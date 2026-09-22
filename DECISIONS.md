@@ -32,3 +32,18 @@
   trustworthy table. The margins show the surah name and page number.
 - **Surah headings** are a drawn frame with the name in Amiri Quran, since the
   heading-name glyphs in QCF2BSML aren't mapped yet.
+
+# Phase 3 notes
+
+- **Flashcard meanings (answer 2).** Tapping a phrase opens it with its meaning covered;
+  tapping it again reveals the meaning, and again hides it.
+- **Splitting lives in the phrase panel** for now: the ayah is shown word by word with a
+  tap zone between each pair. Study mode (Phase 4) will add splitting inline.
+- **Meaning and note can be typed in the panel** so the flashcard can be tried before
+  study mode exists. Edits are kept in this browser only until Phase 4 saves them
+  properly.
+- **Phrase marks** are drawn in a layer behind the text: a 2px baseline rule in the
+  phrase's tone (at half strength when not selected) and an 8% wash on the selected
+  phrase. Checked at phone size: the Arabic reads the same marked or unmarked.
+- **Example:** 14:24 comes pre-split as an example (breaks only, no meanings). It's
+  labelled "example" until edited.

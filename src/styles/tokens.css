@@ -15,6 +15,21 @@
   --accent: #2c5d56;
   --accent-wash: rgb(44 93 86 / 0.08);
 
+  /*
+   * Phrase tones: six muted inks of equal lightness and similar chroma
+   * (OKLCH), so no phrase looks more important than another.
+   */
+  --tone-ink: oklch(0.52 0.05 255);
+  --tone-leaf: oklch(0.54 0.07 140);
+  --tone-clay: oklch(0.54 0.075 45);
+  --tone-plum: oklch(0.52 0.07 340);
+  --tone-sea: oklch(0.54 0.06 205);
+  --tone-stone: oklch(0.54 0.03 80);
+  --mark-wash: 8%;    /* active phrase tint: at most 8% */
+  --mark-rest: 50%;   /* strength of the baseline rule on phrases not selected */
+
+  --paper-deep: #f2ede1; /* covered flashcard, text fields */
+
   /* type */
   --serif: 'Newsreader Variable', 'Source Serif 4', 'Iowan Old Style', Georgia, serif;
   --arabic: 'Amiri Quran', 'Scheherazade New', 'Noto Naskh Arabic', serif;

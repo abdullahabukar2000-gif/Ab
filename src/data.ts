@@ -24,3 +24,14 @@ export function surahOfPage(page: PageData): Chapter | undefined {
   const first = page.lines.find((l) => l.words.length)?.words[0];
   return first ? getChapter(Number(first.verseKey.split(':')[0])) : undefined;
 }
+
+/** An ayah's words in order (end marker excluded), gathered across every page it appears on. */
+export function ayahWords(key: string): string[] {
+  const words: string[] = [];
+  for (const n of availablePages) {
+    for (const l of pages.get(n)!.lines) {
+      for (const w of l.words) if (w.verseKey === key && w.type === 'word') words[w.pos - 1] = w.uthmani;
+    }
+  }
+  return words;
+}

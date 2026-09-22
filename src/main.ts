@@ -6,6 +6,9 @@ import './styles/app.css';
 import { availablePages, getPage } from './data';
 import { ensureFont, pageFamily } from './fonts';
 import { renderPage, upgradeToGlyphs } from './render';
+import { paintMarks, type Selection } from './marks';
+import { onChange, phraseAt, wordCount } from './notes';
+import { renderPanel } from './panel';
 
 type Layout = 'single' | 'spread';
 
@@ -15,6 +18,7 @@ const forward = document.querySelector<HTMLButtonElement>('#forward')!;
 const back = document.querySelector<HTMLButtonElement>('#back')!;
 const where = document.querySelector<HTMLElement>('#where')!;
 const layoutButtons = document.querySelectorAll<HTMLButtonElement>('[data-layout]');
+const panel = document.querySelector<HTMLElement>('#panel')!;
 
 const first = availablePages[0];
 const last = availablePages[availablePages.length - 1];
@@ -26,6 +30,8 @@ const store = {
 
 let layout: Layout = store.get('layout') === 'spread' ? 'spread' : 'single';
 let current = initialPage();
+let selection: Selection | null = null;
+let revealed = false;
 
 function initialPage(): number {
   const fromHash = Number(location.hash.slice(1));
@@ -51,9 +57,10 @@ function show(): void {
     const data = getPage(n)!;
     const pageEl = renderPage(data);
     spread.append(pageEl);
-    queueMicrotask(() => upgradeToGlyphs(pageEl, data));
+    queueMicrotask(async () => { await upgradeToGlyphs(pageEl, data); paintMarks(pageEl, selection); });
   }
   stage.replaceChildren(spread);
+  placePanel();
 
   where.textContent = pages.length > 1 ? `${pages[0]}–${pages[pages.length - 1]}` : String(pages[0]);
   forward.disabled = pages[pages.length - 1] >= last;
@@ -77,6 +84,7 @@ function turn(direction: 1 | -1): void {
   next = Math.min(last, Math.max(first, next));
   if (next === current || !getPage(next)) return;
   current = next;
+  select(null);
   show();
 }
 
@@ -93,6 +101,8 @@ layoutButtons.forEach((b) => b.addEventListener('click', () => setLayout(b.datas
 
 document.addEventListener('keydown', (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if ((e.target as HTMLElement).closest('#panel, #controls')) return;
+  if (e.key === 'Escape') { select(null); return; }
   if (e.key === 'ArrowLeft') { turn(1); wake(); }
   else if (e.key === 'ArrowRight') { turn(-1); wake(); }
 });
@@ -119,9 +129,61 @@ document.addEventListener('pointermove', wake, { passive: true });
 document.addEventListener('pointerdown', wake, { passive: true });
 controls.addEventListener('focusin', wake);
 
+// ------------------------------------------------------------------ phrases
+
+function repaint(): void {
+  stage.querySelectorAll<HTMLElement>('.page').forEach((p) => paintMarks(p, selection));
+}
+
+function select(next: Selection | null): void {
+  selection = next;
+  if (!next) revealed = false;
+  repaint();
+  renderPanel(panel, selection && { selection, revealed }, { select: choose, toggleReveal });
+}
+
+/** Choosing a different phrase starts it covered, like turning up a new card. */
+function choose(next: Selection | null): void {
+  if (next && (next.verseKey !== selection?.verseKey || next.start !== selection?.start)) revealed = false;
+  select(next);
+}
+
+function toggleReveal(): void {
+  revealed = !revealed;
+  select(selection);
+}
+
+stage.addEventListener('click', (e) => {
+  const word = (e.target as HTMLElement).closest<HTMLElement>('.page[data-glyphs="ready"] .w');
+  if (!word) { select(null); return; }
+  const key = word.dataset.key!;
+  // The ayah marker belongs to the ayah's last phrase.
+  const index = Math.min(Number(word.dataset.pos) - 1, wordCount(key) - 1);
+  const phrase = phraseAt(key, index)!;
+  if (selection?.verseKey === key && selection.start === phrase.start) toggleReveal();
+  else choose({ verseKey: key, start: phrase.start });
+});
+
+onChange(repaint);
+
+/** Margin beside the page when there's room for it, a sheet along the bottom when not. */
+function placePanel(): void {
+  const spread = stage.querySelector<HTMLElement>('.spread');
+  if (!spread) return;
+  const free = (stage.clientWidth - spread.getBoundingClientRect().width) / 2;
+  document.body.dataset.panel = free >= 300 ? 'margin' : 'sheet';
+  document.body.style.setProperty('--margin-free', `${Math.max(0, free)}px`);
+  // The sheet takes only the room below the page, so it never covers a line;
+  // on very short screens it gets a usable minimum and scrolls.
+  const below = window.innerHeight - spread.getBoundingClientRect().bottom;
+  document.body.style.setProperty('--sheet-max', `${Math.max(180, below)}px`);
+}
+
+new ResizeObserver(() => { placePanel(); repaint(); }).observe(stage);
+
 addEventListener('hashchange', () => {
   const n = Number(location.hash.slice(1));
-  if (availablePages.includes(n) && n !== current) { current = n; show(); }
+  if (availablePages.includes(n) && n !== current) { current = n; select(null); show(); }
 });
 
 show();
