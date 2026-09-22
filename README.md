@@ -1,0 +1,18 @@
+# Mushaf memorisation app
+
+See `BUILD-SPEC.md` for the full plan and `DECISIONS.md` for choices made along the way.
+
+## Get a page's layout (Phase 1)
+
+Needs Node 18 or newer. No install step and no login.
+
+```
+node scripts/ingest.js 258          # one page
+node scripts/ingest.js 255-261      # several pages
+node scripts/ingest.js --surah 14   # every page of a surah
+```
+
+Each page is saved to `data/pages/<page>.json`, and its 15 lines are printed so you
+can compare them with your printed mushaf. If anything looks off (not 15 lines, or
+two downloads of the same page disagree), the script stops and names the page
+instead of saving it.
