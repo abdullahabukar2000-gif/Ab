@@ -1,0 +1,1259 @@
+{
+ "source": "npm quran-qcf4@1.1.0 index.json (MIT), same fields as quran.com /chapters",
+ "chapters": [
+  {
+   "id": 1,
+   "name_complex": "Al-Fātiĥah",
+   "name_arabic": "الفاتحة",
+   "translated_name": "The Opener",
+   "verses_count": 7,
+   "pages": [
+    1,
+    1
+   ]
+  },
+  {
+   "id": 2,
+   "name_complex": "Al-Baqarah",
+   "name_arabic": "البقرة",
+   "translated_name": "The Cow",
+   "verses_count": 286,
+   "pages": [
+    2,
+    49
+   ]
+  },
+  {
+   "id": 3,
+   "name_complex": "Āli `Imrān",
+   "name_arabic": "آل عمران",
+   "translated_name": "Family of Imran",
+   "verses_count": 200,
+   "pages": [
+    50,
+    76
+   ]
+  },
+  {
+   "id": 4,
+   "name_complex": "An-Nisā",
+   "name_arabic": "النساء",
+   "translated_name": "The Women",
+   "verses_count": 176,
+   "pages": [
+    77,
+    106
+   ]
+  },
+  {
+   "id": 5,
+   "name_complex": "Al-Mā'idah",
+   "name_arabic": "المائدة",
+   "translated_name": "The Table Spread",
+   "verses_count": 120,
+   "pages": [
+    106,
+    127
+   ]
+  },
+  {
+   "id": 6,
+   "name_complex": "Al-'An`ām",
+   "name_arabic": "الأنعام",
+   "translated_name": "The Cattle",
+   "verses_count": 165,
+   "pages": [
+    128,
+    150
+   ]
+  },
+  {
+   "id": 7,
+   "name_complex": "Al-'A`rāf",
+   "name_arabic": "الأعراف",
+   "translated_name": "The Heights",
+   "verses_count": 206,
+   "pages": [
+    151,
+    176
+   ]
+  },
+  {
+   "id": 8,
+   "name_complex": "Al-'Anfāl",
+   "name_arabic": "الأنفال",
+   "translated_name": "The Spoils of War",
+   "verses_count": 75,
+   "pages": [
+    177,
+    186
+   ]
+  },
+  {
+   "id": 9,
+   "name_complex": "At-Tawbah",
+   "name_arabic": "التوبة",
+   "translated_name": "The Repentance",
+   "verses_count": 129,
+   "pages": [
+    187,
+    207
+   ]
+  },
+  {
+   "id": 10,
+   "name_complex": "Yūnus",
+   "name_arabic": "يونس",
+   "translated_name": "Jonah",
+   "verses_count": 109,
+   "pages": [
+    208,
+    221
+   ]
+  },
+  {
+   "id": 11,
+   "name_complex": "Hūd",
+   "name_arabic": "هود",
+   "translated_name": "Hud",
+   "verses_count": 123,
+   "pages": [
+    221,
+    235
+   ]
+  },
+  {
+   "id": 12,
+   "name_complex": "Yūsuf",
+   "name_arabic": "يوسف",
+   "translated_name": "Joseph",
+   "verses_count": 111,
+   "pages": [
+    235,
+    248
+   ]
+  },
+  {
+   "id": 13,
+   "name_complex": "Ar-Ra`d",
+   "name_arabic": "الرعد",
+   "translated_name": "The Thunder",
+   "verses_count": 43,
+   "pages": [
+    249,
+    255
+   ]
+  },
+  {
+   "id": 14,
+   "name_complex": "Ibrāhīm",
+   "name_arabic": "ابراهيم",
+   "translated_name": "Abraham",
+   "verses_count": 52,
+   "pages": [
+    255,
+    261
+   ]
+  },
+  {
+   "id": 15,
+   "name_complex": "Al-Ĥijr",
+   "name_arabic": "الحجر",
+   "translated_name": "The Rocky Tract",
+   "verses_count": 99,
+   "pages": [
+    262,
+    267
+   ]
+  },
+  {
+   "id": 16,
+   "name_complex": "An-Naĥl",
+   "name_arabic": "النحل",
+   "translated_name": "The Bee",
+   "verses_count": 128,
+   "pages": [
+    267,
+    281
+   ]
+  },
+  {
+   "id": 17,
+   "name_complex": "Al-'Isrā",
+   "name_arabic": "الإسراء",
+   "translated_name": "The Night Journey",
+   "verses_count": 111,
+   "pages": [
+    282,
+    293
+   ]
+  },
+  {
+   "id": 18,
+   "name_complex": "Al-Kahf",
+   "name_arabic": "الكهف",
+   "translated_name": "The Cave",
+   "verses_count": 110,
+   "pages": [
+    293,
+    304
+   ]
+  },
+  {
+   "id": 19,
+   "name_complex": "Maryam",
+   "name_arabic": "مريم",
+   "translated_name": "Mary",
+   "verses_count": 98,
+   "pages": [
+    305,
+    312
+   ]
+  },
+  {
+   "id": 20,
+   "name_complex": "Ţāhā",
+   "name_arabic": "طه",
+   "translated_name": "Ta-Ha",
+   "verses_count": 135,
+   "pages": [
+    312,
+    321
+   ]
+  },
+  {
+   "id": 21,
+   "name_complex": "Al-'Anbyā",
+   "name_arabic": "الأنبياء",
+   "translated_name": "The Prophets",
+   "verses_count": 112,
+   "pages": [
+    322,
+    331
+   ]
+  },
+  {
+   "id": 22,
+   "name_complex": "Al-Ĥajj",
+   "name_arabic": "الحج",
+   "translated_name": "The Pilgrimage",
+   "verses_count": 78,
+   "pages": [
+    332,
+    341
+   ]
+  },
+  {
+   "id": 23,
+   "name_complex": "Al-Mu'minūn",
+   "name_arabic": "المؤمنون",
+   "translated_name": "The Believers",
+   "verses_count": 118,
+   "pages": [
+    342,
+    349
+   ]
+  },
+  {
+   "id": 24,
+   "name_complex": "An-Nūr",
+   "name_arabic": "النور",
+   "translated_name": "The Light",
+   "verses_count": 64,
+   "pages": [
+    350,
+    359
+   ]
+  },
+  {
+   "id": 25,
+   "name_complex": "Al-Furqān",
+   "name_arabic": "الفرقان",
+   "translated_name": "The Criterion",
+   "verses_count": 77,
+   "pages": [
+    359,
+    366
+   ]
+  },
+  {
+   "id": 26,
+   "name_complex": "Ash-Shu`arā",
+   "name_arabic": "الشعراء",
+   "translated_name": "The Poets",
+   "verses_count": 227,
+   "pages": [
+    367,
+    376
+   ]
+  },
+  {
+   "id": 27,
+   "name_complex": "An-Naml",
+   "name_arabic": "النمل",
+   "translated_name": "The Ant",
+   "verses_count": 93,
+   "pages": [
+    377,
+    385
+   ]
+  },
+  {
+   "id": 28,
+   "name_complex": "Al-Qaşaş",
+   "name_arabic": "القصص",
+   "translated_name": "The Stories",
+   "verses_count": 88,
+   "pages": [
+    385,
+    396
+   ]
+  },
+  {
+   "id": 29,
+   "name_complex": "Al-`Ankabūt",
+   "name_arabic": "العنكبوت",
+   "translated_name": "The Spider",
+   "verses_count": 69,
+   "pages": [
+    396,
+    404
+   ]
+  },
+  {
+   "id": 30,
+   "name_complex": "Ar-Rūm",
+   "name_arabic": "الروم",
+   "translated_name": "The Romans",
+   "verses_count": 60,
+   "pages": [
+    404,
+    410
+   ]
+  },
+  {
+   "id": 31,
+   "name_complex": "Luqmān",
+   "name_arabic": "لقمان",
+   "translated_name": "Luqman",
+   "verses_count": 34,
+   "pages": [
+    411,
+    414
+   ]
+  },
+  {
+   "id": 32,
+   "name_complex": "As-Sajdah",
+   "name_arabic": "السجدة",
+   "translated_name": "The Prostration",
+   "verses_count": 30,
+   "pages": [
+    415,
+    417
+   ]
+  },
+  {
+   "id": 33,
+   "name_complex": "Al-'Aĥzāb",
+   "name_arabic": "الأحزاب",
+   "translated_name": "The Combined Forces",
+   "verses_count": 73,
+   "pages": [
+    418,
+    427
+   ]
+  },
+  {
+   "id": 34,
+   "name_complex": "Saba",
+   "name_arabic": "سبإ",
+   "translated_name": "Sheba",
+   "verses_count": 54,
+   "pages": [
+    428,
+    434
+   ]
+  },
+  {
+   "id": 35,
+   "name_complex": "Fāţir",
+   "name_arabic": "فاطر",
+   "translated_name": "Originator",
+   "verses_count": 45,
+   "pages": [
+    434,
+    440
+   ]
+  },
+  {
+   "id": 36,
+   "name_complex": "Yā-Sīn",
+   "name_arabic": "يس",
+   "translated_name": "Ya Sin",
+   "verses_count": 83,
+   "pages": [
+    440,
+    445
+   ]
+  },
+  {
+   "id": 37,
+   "name_complex": "Aş-Şāffāt",
+   "name_arabic": "الصافات",
+   "translated_name": "Those who set the Ranks",
+   "verses_count": 182,
+   "pages": [
+    446,
+    452
+   ]
+  },
+  {
+   "id": 38,
+   "name_complex": "Şād",
+   "name_arabic": "ص",
+   "translated_name": "The Letter \"Saad\"",
+   "verses_count": 88,
+   "pages": [
+    453,
+    458
+   ]
+  },
+  {
+   "id": 39,
+   "name_complex": "Az-Zumar",
+   "name_arabic": "الزمر",
+   "translated_name": "The Troops",
+   "verses_count": 75,
+   "pages": [
+    458,
+    467
+   ]
+  },
+  {
+   "id": 40,
+   "name_complex": "Ghāfir",
+   "name_arabic": "غافر",
+   "translated_name": "The Forgiver",
+   "verses_count": 85,
+   "pages": [
+    467,
+    476
+   ]
+  },
+  {
+   "id": 41,
+   "name_complex": "Fuşşilat",
+   "name_arabic": "فصلت",
+   "translated_name": "Explained in Detail",
+   "verses_count": 54,
+   "pages": [
+    477,
+    482
+   ]
+  },
+  {
+   "id": 42,
+   "name_complex": "Ash-Shūraá",
+   "name_arabic": "الشورى",
+   "translated_name": "The Consultation",
+   "verses_count": 53,
+   "pages": [
+    483,
+    489
+   ]
+  },
+  {
+   "id": 43,
+   "name_complex": "Az-Zukhruf",
+   "name_arabic": "الزخرف",
+   "translated_name": "The Ornaments of Gold",
+   "verses_count": 89,
+   "pages": [
+    489,
+    495
+   ]
+  },
+  {
+   "id": 44,
+   "name_complex": "Ad-Dukhān",
+   "name_arabic": "الدخان",
+   "translated_name": "The Smoke",
+   "verses_count": 59,
+   "pages": [
+    496,
+    498
+   ]
+  },
+  {
+   "id": 45,
+   "name_complex": "Al-Jāthiyah",
+   "name_arabic": "الجاثية",
+   "translated_name": "The Crouching",
+   "verses_count": 37,
+   "pages": [
+    499,
+    502
+   ]
+  },
+  {
+   "id": 46,
+   "name_complex": "Al-'Aĥqāf",
+   "name_arabic": "الأحقاف",
+   "translated_name": "The Wind-Curved Sandhills",
+   "verses_count": 35,
+   "pages": [
+    502,
+    506
+   ]
+  },
+  {
+   "id": 47,
+   "name_complex": "Muĥammad",
+   "name_arabic": "محمد",
+   "translated_name": "Muhammad",
+   "verses_count": 38,
+   "pages": [
+    507,
+    510
+   ]
+  },
+  {
+   "id": 48,
+   "name_complex": "Al-Fatĥ",
+   "name_arabic": "الفتح",
+   "translated_name": "The Victory",
+   "verses_count": 29,
+   "pages": [
+    511,
+    515
+   ]
+  },
+  {
+   "id": 49,
+   "name_complex": "Al-Ĥujurāt",
+   "name_arabic": "الحجرات",
+   "translated_name": "The Rooms",
+   "verses_count": 18,
+   "pages": [
+    515,
+    517
+   ]
+  },
+  {
+   "id": 50,
+   "name_complex": "Qāf",
+   "name_arabic": "ق",
+   "translated_name": "The Letter \"Qaf\"",
+   "verses_count": 45,
+   "pages": [
+    518,
+    520
+   ]
+  },
+  {
+   "id": 51,
+   "name_complex": "Adh-Dhāriyāt",
+   "name_arabic": "الذاريات",
+   "translated_name": "The Winnowing Winds",
+   "verses_count": 60,
+   "pages": [
+    520,
+    523
+   ]
+  },
+  {
+   "id": 52,
+   "name_complex": "Aţ-Ţūr",
+   "name_arabic": "الطور",
+   "translated_name": "The Mount",
+   "verses_count": 49,
+   "pages": [
+    523,
+    525
+   ]
+  },
+  {
+   "id": 53,
+   "name_complex": "An-Najm",
+   "name_arabic": "النجم",
+   "translated_name": "The Star",
+   "verses_count": 62,
+   "pages": [
+    526,
+    528
+   ]
+  },
+  {
+   "id": 54,
+   "name_complex": "Al-Qamar",
+   "name_arabic": "القمر",
+   "translated_name": "The Moon",
+   "verses_count": 55,
+   "pages": [
+    528,
+    531
+   ]
+  },
+  {
+   "id": 55,
+   "name_complex": "Ar-Raĥmān",
+   "name_arabic": "الرحمن",
+   "translated_name": "The Beneficent",
+   "verses_count": 78,
+   "pages": [
+    531,
+    534
+   ]
+  },
+  {
+   "id": 56,
+   "name_complex": "Al-Wāqi`ah",
+   "name_arabic": "الواقعة",
+   "translated_name": "The Inevitable",
+   "verses_count": 96,
+   "pages": [
+    534,
+    537
+   ]
+  },
+  {
+   "id": 57,
+   "name_complex": "Al-Ĥadīd",
+   "name_arabic": "الحديد",
+   "translated_name": "The Iron",
+   "verses_count": 29,
+   "pages": [
+    537,
+    541
+   ]
+  },
+  {
+   "id": 58,
+   "name_complex": "Al-Mujādila",
+   "name_arabic": "المجادلة",
+   "translated_name": "The Pleading Woman",
+   "verses_count": 22,
+   "pages": [
+    542,
+    545
+   ]
+  },
+  {
+   "id": 59,
+   "name_complex": "Al-Ĥashr",
+   "name_arabic": "الحشر",
+   "translated_name": "The Exile",
+   "verses_count": 24,
+   "pages": [
+    545,
+    548
+   ]
+  },
+  {
+   "id": 60,
+   "name_complex": "Al-Mumtaĥanah",
+   "name_arabic": "الممتحنة",
+   "translated_name": "She that is to be examined",
+   "verses_count": 13,
+   "pages": [
+    549,
+    551
+   ]
+  },
+  {
+   "id": 61,
+   "name_complex": "Aş-Şaf",
+   "name_arabic": "الصف",
+   "translated_name": "The Ranks",
+   "verses_count": 14,
+   "pages": [
+    551,
+    552
+   ]
+  },
+  {
+   "id": 62,
+   "name_complex": "Al-Jumu`ah",
+   "name_arabic": "الجمعة",
+   "translated_name": "The Congregation, Friday",
+   "verses_count": 11,
+   "pages": [
+    553,
+    554
+   ]
+  },
+  {
+   "id": 63,
+   "name_complex": "Al-Munāfiqūn",
+   "name_arabic": "المنافقون",
+   "translated_name": "The Hypocrites",
+   "verses_count": 11,
+   "pages": [
+    554,
+    555
+   ]
+  },
+  {
+   "id": 64,
+   "name_complex": "At-Taghābun",
+   "name_arabic": "التغابن",
+   "translated_name": "The Mutual Disillusion",
+   "verses_count": 18,
+   "pages": [
+    556,
+    557
+   ]
+  },
+  {
+   "id": 65,
+   "name_complex": "Aţ-Ţalāq",
+   "name_arabic": "الطلاق",
+   "translated_name": "The Divorce",
+   "verses_count": 12,
+   "pages": [
+    558,
+    559
+   ]
+  },
+  {
+   "id": 66,
+   "name_complex": "At-Taĥrīm",
+   "name_arabic": "التحريم",
+   "translated_name": "The Prohibition",
+   "verses_count": 12,
+   "pages": [
+    560,
+    561
+   ]
+  },
+  {
+   "id": 67,
+   "name_complex": "Al-Mulk",
+   "name_arabic": "الملك",
+   "translated_name": "The Sovereignty",
+   "verses_count": 30,
+   "pages": [
+    562,
+    564
+   ]
+  },
+  {
+   "id": 68,
+   "name_complex": "Al-Qalam",
+   "name_arabic": "القلم",
+   "translated_name": "The Pen",
+   "verses_count": 52,
+   "pages": [
+    564,
+    566
+   ]
+  },
+  {
+   "id": 69,
+   "name_complex": "Al-Ĥāqqah",
+   "name_arabic": "الحاقة",
+   "translated_name": "The Reality",
+   "verses_count": 52,
+   "pages": [
+    566,
+    568
+   ]
+  },
+  {
+   "id": 70,
+   "name_complex": "Al-Ma`ārij",
+   "name_arabic": "المعارج",
+   "translated_name": "The Ascending Stairways",
+   "verses_count": 44,
+   "pages": [
+    568,
+    570
+   ]
+  },
+  {
+   "id": 71,
+   "name_complex": "Nūĥ",
+   "name_arabic": "نوح",
+   "translated_name": "Noah",
+   "verses_count": 28,
+   "pages": [
+    570,
+    571
+   ]
+  },
+  {
+   "id": 72,
+   "name_complex": "Al-Jinn",
+   "name_arabic": "الجن",
+   "translated_name": "The Jinn",
+   "verses_count": 28,
+   "pages": [
+    572,
+    573
+   ]
+  },
+  {
+   "id": 73,
+   "name_complex": "Al-Muzzammil",
+   "name_arabic": "المزمل",
+   "translated_name": "The Enshrouded One",
+   "verses_count": 20,
+   "pages": [
+    574,
+    575
+   ]
+  },
+  {
+   "id": 74,
+   "name_complex": "Al-Muddaththir",
+   "name_arabic": "المدثر",
+   "translated_name": "The Cloaked One",
+   "verses_count": 56,
+   "pages": [
+    575,
+    577
+   ]
+  },
+  {
+   "id": 75,
+   "name_complex": "Al-Qiyāmah",
+   "name_arabic": "القيامة",
+   "translated_name": "The Resurrection",
+   "verses_count": 40,
+   "pages": [
+    577,
+    578
+   ]
+  },
+  {
+   "id": 76,
+   "name_complex": "Al-'Insān",
+   "name_arabic": "الانسان",
+   "translated_name": "The Man",
+   "verses_count": 31,
+   "pages": [
+    578,
+    580
+   ]
+  },
+  {
+   "id": 77,
+   "name_complex": "Al-Mursalāt",
+   "name_arabic": "المرسلات",
+   "translated_name": "The Emissaries",
+   "verses_count": 50,
+   "pages": [
+    580,
+    581
+   ]
+  },
+  {
+   "id": 78,
+   "name_complex": "An-Naba",
+   "name_arabic": "النبإ",
+   "translated_name": "The Tidings",
+   "verses_count": 40,
+   "pages": [
+    582,
+    583
+   ]
+  },
+  {
+   "id": 79,
+   "name_complex": "An-Nāzi`āt",
+   "name_arabic": "النازعات",
+   "translated_name": "Those who drag forth",
+   "verses_count": 46,
+   "pages": [
+    583,
+    584
+   ]
+  },
+  {
+   "id": 80,
+   "name_complex": "`Abasa",
+   "name_arabic": "عبس",
+   "translated_name": "He Frowned",
+   "verses_count": 42,
+   "pages": [
+    585,
+    585
+   ]
+  },
+  {
+   "id": 81,
+   "name_complex": "At-Takwīr",
+   "name_arabic": "التكوير",
+   "translated_name": "The Overthrowing",
+   "verses_count": 29,
+   "pages": [
+    586,
+    586
+   ]
+  },
+  {
+   "id": 82,
+   "name_complex": "Al-'Infiţār",
+   "name_arabic": "الإنفطار",
+   "translated_name": "The Cleaving",
+   "verses_count": 19,
+   "pages": [
+    587,
+    587
+   ]
+  },
+  {
+   "id": 83,
+   "name_complex": "Al-Muţaffifīn",
+   "name_arabic": "المطففين",
+   "translated_name": "The Defrauding",
+   "verses_count": 36,
+   "pages": [
+    587,
+    589
+   ]
+  },
+  {
+   "id": 84,
+   "name_complex": "Al-'Inshiqāq",
+   "name_arabic": "الإنشقاق",
+   "translated_name": "The Sundering",
+   "verses_count": 25,
+   "pages": [
+    589,
+    589
+   ]
+  },
+  {
+   "id": 85,
+   "name_complex": "Al-Burūj",
+   "name_arabic": "البروج",
+   "translated_name": "The Mansions of the Stars",
+   "verses_count": 22,
+   "pages": [
+    590,
+    590
+   ]
+  },
+  {
+   "id": 86,
+   "name_complex": "Aţ-Ţāriq",
+   "name_arabic": "الطارق",
+   "translated_name": "The Nightcommer",
+   "verses_count": 17,
+   "pages": [
+    591,
+    591
+   ]
+  },
+  {
+   "id": 87,
+   "name_complex": "Al-'A`lá",
+   "name_arabic": "الأعلى",
+   "translated_name": "The Most High",
+   "verses_count": 19,
+   "pages": [
+    591,
+    592
+   ]
+  },
+  {
+   "id": 88,
+   "name_complex": "Al-Ghāshiyah",
+   "name_arabic": "الغاشية",
+   "translated_name": "The Overwhelming",
+   "verses_count": 26,
+   "pages": [
+    592,
+    592
+   ]
+  },
+  {
+   "id": 89,
+   "name_complex": "Al-Fajr",
+   "name_arabic": "الفجر",
+   "translated_name": "The Dawn",
+   "verses_count": 30,
+   "pages": [
+    593,
+    594
+   ]
+  },
+  {
+   "id": 90,
+   "name_complex": "Al-Balad",
+   "name_arabic": "البلد",
+   "translated_name": "The City",
+   "verses_count": 20,
+   "pages": [
+    594,
+    594
+   ]
+  },
+  {
+   "id": 91,
+   "name_complex": "Ash-Shams",
+   "name_arabic": "الشمس",
+   "translated_name": "The Sun",
+   "verses_count": 15,
+   "pages": [
+    595,
+    595
+   ]
+  },
+  {
+   "id": 92,
+   "name_complex": "Al-Layl",
+   "name_arabic": "الليل",
+   "translated_name": "The Night",
+   "verses_count": 21,
+   "pages": [
+    595,
+    596
+   ]
+  },
+  {
+   "id": 93,
+   "name_complex": "Ađ-Đuĥaá",
+   "name_arabic": "الضحى",
+   "translated_name": "The Morning Hours",
+   "verses_count": 11,
+   "pages": [
+    596,
+    596
+   ]
+  },
+  {
+   "id": 94,
+   "name_complex": "Ash-Sharĥ",
+   "name_arabic": "الشرح",
+   "translated_name": "The Relief",
+   "verses_count": 8,
+   "pages": [
+    596,
+    596
+   ]
+  },
+  {
+   "id": 95,
+   "name_complex": "At-Tīn",
+   "name_arabic": "التين",
+   "translated_name": "The Fig",
+   "verses_count": 8,
+   "pages": [
+    597,
+    597
+   ]
+  },
+  {
+   "id": 96,
+   "name_complex": "Al-`Alaq",
+   "name_arabic": "العلق",
+   "translated_name": "The Clot",
+   "verses_count": 19,
+   "pages": [
+    597,
+    597
+   ]
+  },
+  {
+   "id": 97,
+   "name_complex": "Al-Qadr",
+   "name_arabic": "القدر",
+   "translated_name": "The Power",
+   "verses_count": 5,
+   "pages": [
+    598,
+    598
+   ]
+  },
+  {
+   "id": 98,
+   "name_complex": "Al-Bayyinah",
+   "name_arabic": "البينة",
+   "translated_name": "The Clear Proof",
+   "verses_count": 8,
+   "pages": [
+    598,
+    599
+   ]
+  },
+  {
+   "id": 99,
+   "name_complex": "Az-Zalzalah",
+   "name_arabic": "الزلزلة",
+   "translated_name": "The Earthquake",
+   "verses_count": 8,
+   "pages": [
+    599,
+    599
+   ]
+  },
+  {
+   "id": 100,
+   "name_complex": "Al-`Ādiyāt",
+   "name_arabic": "العاديات",
+   "translated_name": "The Courser",
+   "verses_count": 11,
+   "pages": [
+    599,
+    600
+   ]
+  },
+  {
+   "id": 101,
+   "name_complex": "Al-Qāri`ah",
+   "name_arabic": "القارعة",
+   "translated_name": "The Calamity",
+   "verses_count": 11,
+   "pages": [
+    600,
+    600
+   ]
+  },
+  {
+   "id": 102,
+   "name_complex": "At-Takāthur",
+   "name_arabic": "التكاثر",
+   "translated_name": "The Rivalry in world increase",
+   "verses_count": 8,
+   "pages": [
+    600,
+    600
+   ]
+  },
+  {
+   "id": 103,
+   "name_complex": "Al-`Aşr",
+   "name_arabic": "العصر",
+   "translated_name": "The Declining Day",
+   "verses_count": 3,
+   "pages": [
+    601,
+    601
+   ]
+  },
+  {
+   "id": 104,
+   "name_complex": "Al-Humazah",
+   "name_arabic": "الهمزة",
+   "translated_name": "The Traducer",
+   "verses_count": 9,
+   "pages": [
+    601,
+    601
+   ]
+  },
+  {
+   "id": 105,
+   "name_complex": "Al-Fīl",
+   "name_arabic": "الفيل",
+   "translated_name": "The Elephant",
+   "verses_count": 5,
+   "pages": [
+    601,
+    601
+   ]
+  },
+  {
+   "id": 106,
+   "name_complex": "Quraysh",
+   "name_arabic": "قريش",
+   "translated_name": "Quraysh",
+   "verses_count": 4,
+   "pages": [
+    602,
+    602
+   ]
+  },
+  {
+   "id": 107,
+   "name_complex": "Al-Mā`ūn",
+   "name_arabic": "الماعون",
+   "translated_name": "The Small kindnesses",
+   "verses_count": 7,
+   "pages": [
+    602,
+    602
+   ]
+  },
+  {
+   "id": 108,
+   "name_complex": "Al-Kawthar",
+   "name_arabic": "الكوثر",
+   "translated_name": "The Abundance",
+   "verses_count": 3,
+   "pages": [
+    602,
+    602
+   ]
+  },
+  {
+   "id": 109,
+   "name_complex": "Al-Kāfirūn",
+   "name_arabic": "الكافرون",
+   "translated_name": "The Disbelievers",
+   "verses_count": 6,
+   "pages": [
+    603,
+    603
+   ]
+  },
+  {
+   "id": 110,
+   "name_complex": "An-Naşr",
+   "name_arabic": "النصر",
+   "translated_name": "The Divine Support",
+   "verses_count": 3,
+   "pages": [
+    603,
+    603
+   ]
+  },
+  {
+   "id": 111,
+   "name_complex": "Al-Masad",
+   "name_arabic": "المسد",
+   "translated_name": "The Palm Fiber",
+   "verses_count": 5,
+   "pages": [
+    603,
+    603
+   ]
+  },
+  {
+   "id": 112,
+   "name_complex": "Al-'Ikhlāş",
+   "name_arabic": "الإخلاص",
+   "translated_name": "The Sincerity",
+   "verses_count": 4,
+   "pages": [
+    604,
+    604
+   ]
+  },
+  {
+   "id": 113,
+   "name_complex": "Al-Falaq",
+   "name_arabic": "الفلق",
+   "translated_name": "The Daybreak",
+   "verses_count": 5,
+   "pages": [
+    604,
+    604
+   ]
+  },
+  {
+   "id": 114,
+   "name_complex": "An-Nās",
+   "name_arabic": "الناس",
+   "translated_name": "Mankind",
+   "verses_count": 6,
+   "pages": [
+    604,
+    604
+   ]
+  }
+ ]
+}

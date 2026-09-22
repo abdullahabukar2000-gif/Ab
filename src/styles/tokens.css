@@ -1,0 +1,34 @@
+/*
+ * The only place colours are defined. Phase 2 ships the paper theme; sepia and
+ * night will redefine these same tokens under [data-mood] in Phase 5.
+ */
+:root {
+  color-scheme: light;
+
+  /* paper: warm off-white, ink a brown-black rather than pure black */
+  --paper: #faf7f0;
+  --ink: #1e1a13;
+  --ink-quiet: #7d7464;   /* page furniture: folio, running head */
+  --hairline: #e3dccb;    /* gutter, cartouche inner rule */
+
+  /* the one accent: a deep muted green-teal, the mushaf ornament colour */
+  --accent: #2c5d56;
+  --accent-wash: rgb(44 93 86 / 0.08);
+
+  /* type */
+  --serif: 'Newsreader Variable', 'Source Serif 4', 'Iowan Old Style', Georgia, serif;
+  --arabic: 'Amiri Quran', 'Scheherazade New', 'Noto Naskh Arabic', serif;
+
+  /*
+   * The page, as plain numbers in em of the page's own type size (unitless so
+   * the type size itself can be derived from them).
+   * Measured on pages 255-262: lines run 11.4-19.6em wide without spaces.
+   */
+  --block-width: 19.3;
+  --line-height: 1.9;
+  --lines: 15;
+  --margin-inline: 2.4;
+  --margin-block: 2.2;
+
+  --fade: 120ms ease;
+}

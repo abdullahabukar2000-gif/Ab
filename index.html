@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Hifz Mushaf</title>
+  </head>
+  <body>
+    <main id="stage" aria-label="Mushaf page"></main>
+    <nav id="controls" aria-label="Page controls">
+      <button id="forward" type="button" aria-label="Next page">‹ next</button>
+      <span id="where" aria-live="polite"></span>
+      <button id="back" type="button" aria-label="Previous page">previous ›</button>
+      <span class="sep" aria-hidden="true"></span>
+      <button type="button" data-layout="single">one page</button>
+      <button type="button" data-layout="spread">two pages</button>
+    </nav>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

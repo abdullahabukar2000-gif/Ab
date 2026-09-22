@@ -2,9 +2,21 @@
 
 See `BUILD-SPEC.md` for the full plan and `DECISIONS.md` for choices made along the way.
 
+## Run it
+
+```
+npm install
+npm run dev            # open the address it prints
+```
+
+Keys: ← next page, → previous page (a mushaf reads right to left).
+
+`npm run preview:build` makes `dist/preview.html`, a single shareable file (fonts in
+`dist/fonts/`).
+
 ## Get a page's layout (Phase 1)
 
-Needs Node 18 or newer. No install step and no login.
+Needs Node 18 or newer and `npm install`. No login.
 
 ```
 node scripts/ingest.js 258          # one page

@@ -13,6 +13,14 @@
 // (github.com/zonetecde/mushaf-layout) for when quran.com can't be reached.
 // It is not official: re-ingest from quran.com when possible and compare.
 //
+// Each page's QCF V2 font is downloaded, unmodified, to public/fonts/qcf2/ so
+// the app works offline. Two further checks run against King Fahd Complex
+// files (via github.com/mustafa0x/qpc-fonts):
+//   - the font's internal name must be that page's (QCF2258 for page 258), and
+//     it must hold a glyph for every word code on the page with no unused
+//     glyph in between, so a page can never be paired with the wrong font;
+//   - every ayah's codes must match the Complex's own per-ayah listing.
+//
 // Every page is fetched twice and the two layouts must match word for word,
 // because the API has been seen to return different line breaks for the same
 // request. Any disagreement, or a page that isn't exactly 15 lines, stops the
@@ -21,9 +29,18 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import * as fontkit from 'fontkit';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT_DIR = join(ROOT, 'data', 'pages');
+const FONT_DIR = join(ROOT, 'public', 'fonts', 'qcf2');
+const QPC_FONTS = 'https://raw.githubusercontent.com/mustafa0x/qpc-fonts/8a4f39d563ea69c994416a1692827e38156c548d';
+
+// Glyphs present in every QCF V2 page font that no word on the page uses.
+const SHARED_GLYPHS = new Set([0xfb50, ...Array.from({ length: 0xfd79 - 0xfd5a + 1 }, (_, i) => 0xfd5a + i)]);
+
+// The basmalah as drawn by the QCF V2 basmalah font (QCF2BSML).
+const BASMALAH_CODE = '\ufb51\ufb52\ufb53';
 const LINES_PER_PAGE = 15;
 const TOTAL_PAGES = 604;
 
@@ -117,7 +134,7 @@ async function fetchPageWords(api, page) {
   return words;
 }
 
-const GITHUB_BASE = 'https://raw.githubusercontent.com/zonetecde/mushaf-layout/refs/heads/main/mushaf';
+const GITHUB_BASE = 'https://raw.githubusercontent.com/zonetecde/mushaf-layout/72116ce4d405d67823804f0eed795c1e6409b4af/mushaf';
 const ARABIC_DIGITS = '٠١٢٣٤٥٦٧٨٩';
 const toArabicDigits = (n) => String(n).replace(/\d/g, (d) => ARABIC_DIGITS[d]);
 
@@ -131,8 +148,12 @@ async function fetchPageWordsGithub(page) {
   const words = [];
   const labels = {};
   for (const l of body.lines ?? []) {
-    if (l.type === 'surah-header') { labels[l.line] = { type: 'surah_name', surah: Number(l.surah) }; continue; }
-    if (l.type === 'basmala') { labels[l.line] = { type: 'basmalah' }; continue; }
+    if (l.type === 'surah-header') { labels[l.line] = { type: 'surah_name', surah: Number(l.surah), name: l.text }; continue; }
+    if (l.type === 'basmala') {
+      if (l.qpcV2 !== BASMALAH_CODE) fail(`page ${page}: unexpected basmalah glyphs on line ${l.line}`);
+      labels[l.line] = { type: 'basmalah' };
+      continue;
+    }
     if (l.type !== 'text') fail(`page ${page}: line ${l.line} has unknown type ${l.type}`);
     for (const w of l.words ?? []) {
       const [surah, ayah, pos] = w.location.split(':').map(Number);
@@ -174,7 +195,7 @@ function verseParts(key) {
   return { surah: s, ayah: a };
 }
 
-function buildLayout(page, words, verseCounts, labels = null) {
+function buildLayout(page, words, verseCounts, labels = null, surahNames = null) {
   if (!words.length) fail(`page ${page}: API returned no words`);
 
   const byLine = new Map();
@@ -230,8 +251,11 @@ function buildLayout(page, words, verseCounts, labels = null) {
       fail(`page ${page}: lines ${i + 1}-${j} (${gap} empty) before surah ${nextSurahGuess}; expected ${expected.length}`);
     }
     for (let k = 0; k < gap; k++) {
-      lines[i + k].type = expected[k];
-      lines[i + k].surah = nextSurahGuess;
+      const l = lines[i + k];
+      l.type = expected[k];
+      l.surah = nextSurahGuess;
+      if (l.type === 'surah_name') l.name = surahNames?.[nextSurahGuess] ?? labels?.[l.line]?.name ?? null;
+      if (l.type === 'basmalah') l.code = BASMALAH_CODE;
     }
     i = j;
   }
@@ -286,22 +310,95 @@ function printPage(layout) {
   }
 }
 
-async function fetchVerseCounts(api) {
+async function fetchChapters(api) {
   const body = await getJson(api, '/chapters');
-  const counts = {};
-  for (const c of body.chapters ?? []) counts[c.id] = c.verses_count;
+  const counts = {}, names = {};
+  for (const c of body.chapters ?? []) { counts[c.id] = c.verses_count; names[c.id] = c.name_arabic; }
   if (Object.keys(counts).length !== 114) fail(`/chapters returned ${Object.keys(counts).length} surahs, expected 114`);
-  return counts;
+  return { counts, names };
 }
 
-async function ingestPage(api, page, verseCounts) {
+// ---------------------------------------------------------------- KFGQPC checks
+
+async function download(url) {
+  const res = await fetch(url);
+  if (!res.ok) fail(`HTTP ${res.status} for ${url}`);
+  return Buffer.from(await res.arrayBuffer());
+}
+
+let ayahListing;
+async function kfgqpcAyahs(page) {
+  if (!ayahListing) {
+    ayahListing = new Map();
+    const text = (await download(`${QPC_FONTS}/mushaf-v2.txt`)).toString('utf8');
+    for (const row of text.split('\n')) {
+      if (!row.trim()) continue;
+      const comma = row.indexOf(',');
+      const p = Number(row.slice(0, comma));
+      if (!ayahListing.has(p)) ayahListing.set(p, []);
+      ayahListing.get(p).push(row.slice(comma + 1).replace(/ /g, ''));
+    }
+  }
+  return ayahListing.get(page) ?? [];
+}
+
+async function checkAgainstKfgqpc(layout) {
+  const { page } = layout;
+  const byAyah = new Map();
+  for (const l of layout.lines) for (const w of l.words) byAyah.set(w.verseKey, (byAyah.get(w.verseKey) ?? '') + w.code);
+  const ours = [...byAyah.entries()];
+  const theirs = await kfgqpcAyahs(page);
+  if (ours.length !== theirs.length) fail(`page ${page}: ${ours.length} ayahs here, King Fahd listing has ${theirs.length}`);
+  ours.forEach(([key, codes], i) => {
+    if (codes !== theirs[i]) fail(`page ${page}: ayah ${key} glyphs differ from the King Fahd listing`);
+  });
+}
+
+async function ensureFont(file, url) {
+  const path = join(FONT_DIR, file);
+  if (existsSync(path)) return readFileSync(path);
+  const buf = await download(url);
+  mkdirSync(FONT_DIR, { recursive: true });
+  writeFileSync(path, buf);
+  return buf;
+}
+
+async function checkPageFont(layout) {
+  const { page } = layout;
+  const name = `QCF2${String(page).padStart(3, '0')}`;
+  const buf = await ensureFont(`p${page}.ttf`, `${QPC_FONTS}/mushaf-v2/${name}.ttf`);
+  const font = fontkit.create(buf);
+  if (font.postscriptName !== name && font.fullName !== name) fail(`page ${page}: font file is ${font.fullName}, expected ${name}`);
+  // 0xFFFF is the cmap table's end marker, not a glyph.
+  const inFont = new Set(font.characterSet.filter((c) => c > 0x20 && c !== 0xffff));
+  const used = new Set(layout.lines.flatMap((l) => l.words.flatMap((w) => [...w.code].map((c) => c.codePointAt(0)))));
+  for (const c of used) if (!inFont.has(c)) fail(`page ${page}: font ${name} has no glyph for U+${c.toString(16)}`);
+  // Some fonts carry unused glyphs after the page's last word (page 256 has 15);
+  // harmless. An unused glyph *among* the page's words means a word is missing.
+  const last = Math.max(...used);
+  for (const c of inFont) {
+    if (c < last && !used.has(c) && !SHARED_GLYPHS.has(c)) fail(`page ${page}: font ${name} has glyph U+${c.toString(16)} that no word on the page uses`);
+  }
+}
+
+async function checkBasmalahFont() {
+  const buf = await ensureFont('bsml.ttf', `${QPC_FONTS}/mushaf-v2/QCF2BSML.ttf`);
+  const font = fontkit.create(buf);
+  for (const ch of BASMALAH_CODE) {
+    if (!font.characterSet.includes(ch.codePointAt(0))) fail(`basmalah font has no glyph for U+${ch.codePointAt(0).toString(16)}`);
+  }
+}
+
+async function ingestPage(api, page, chapters) {
   const fetchOnce = api.github ? () => fetchPageWordsGithub(page) : async () => ({ words: await fetchPageWords(api, page), labels: null });
   const first = await fetchOnce();
   const second = await fetchOnce();
   if (fingerprint(first.words) !== fingerprint(second.words)) {
     fail(`page ${page}: two identical requests returned different layouts; not writing anything`);
   }
-  const layout = { ...buildLayout(page, first.words, verseCounts, first.labels), source: api.label };
+  const layout = { ...buildLayout(page, first.words, chapters?.counts, first.labels, chapters?.names), source: api.label };
+  await checkAgainstKfgqpc(layout);
+  await checkPageFont(layout);
   mkdirSync(OUT_DIR, { recursive: true });
   writeFileSync(join(OUT_DIR, `${page}.json`), JSON.stringify(layout, null, 2) + '\n');
   return layout;
@@ -339,13 +436,14 @@ async function main() {
   if (api.github && !args.pages) fail('--source github needs page numbers, not --surah');
   const pages = args.pages ?? (await pagesForSurah(api, args.surah));
   console.log(`source: ${api.label}`);
-  const verseCounts = api.github ? null : await fetchVerseCounts(api);
+  const chapters = api.github ? null : await fetchChapters(api);
+  await checkBasmalahFont();
 
   let failed = 0;
   for (const page of pages) {
     try {
-      printPage(await ingestPage(api, page, verseCounts));
-      console.log(`   → data/pages/${page}.json`);
+      printPage(await ingestPage(api, page, chapters));
+      console.log(`   → data/pages/${page}.json + public/fonts/qcf2/p${page}.ttf`);
     } catch (err) {
       failed++;
       console.error(`\n✗ ${err.ingest ? err.message : `page ${page}: ${err.message}`}`);
