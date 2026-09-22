@@ -12,6 +12,10 @@ node scripts/ingest.js 255-261      # several pages
 node scripts/ingest.js --surah 14   # every page of a surah
 ```
 
+If quran.com can't be reached, add `--source github` to use a community copy of the
+same layout instead (page numbers only). `data/pages/258.json` currently comes from
+that copy; its `source` field says so.
+
 Each page is saved to `data/pages/<page>.json`, and its 15 lines are printed so you
 can compare them with your printed mushaf. If anything looks off (not 15 lines, or
 two downloads of the same page disagree), the script stops and names the page

@@ -5,9 +5,13 @@
 //   node scripts/ingest.js 258          one page
 //   node scripts/ingest.js 255-261      a range of pages
 //   node scripts/ingest.js --surah 14   every page a surah touches
+//   node scripts/ingest.js 258 --source github
 //
 // Source: the public quran.com API (no login). If QF_CLIENT_ID and
 // QF_AUTH_TOKEN are set in .env, the Quran Foundation API is used instead.
+// `--source github` reads the community mushaf-layout dataset on GitHub
+// (github.com/zonetecde/mushaf-layout) for when quran.com can't be reached.
+// It is not official: re-ingest from quran.com when possible and compare.
 //
 // Every page is fetched twice and the two layouts must match word for word,
 // because the API has been seen to return different line breaks for the same
@@ -113,6 +117,43 @@ async function fetchPageWords(api, page) {
   return words;
 }
 
+const GITHUB_BASE = 'https://raw.githubusercontent.com/zonetecde/mushaf-layout/refs/heads/main/mushaf';
+const ARABIC_DIGITS = '٠١٢٣٤٥٦٧٨٩';
+const toArabicDigits = (n) => String(n).replace(/\d/g, (d) => ARABIC_DIGITS[d]);
+
+// The GitHub dataset glues each ayah's end marker onto its last word
+// ("word ١٩" / "glyph glyph"). Split it back out so words match the API's shape.
+async function fetchPageWordsGithub(page) {
+  const res = await fetch(`${GITHUB_BASE}/page-${String(page).padStart(3, '0')}.json`);
+  if (!res.ok) fail(`page ${page}: GitHub dataset returned HTTP ${res.status}`);
+  const body = await res.json();
+  if (body.page !== page) fail(`page ${page}: GitHub file says it is page ${body.page}`);
+  const words = [];
+  const labels = {};
+  for (const l of body.lines ?? []) {
+    if (l.type === 'surah-header') { labels[l.line] = { type: 'surah_name', surah: Number(l.surah) }; continue; }
+    if (l.type === 'basmala') { labels[l.line] = { type: 'basmalah' }; continue; }
+    if (l.type !== 'text') fail(`page ${page}: line ${l.line} has unknown type ${l.type}`);
+    for (const w of l.words ?? []) {
+      const [surah, ayah, pos] = w.location.split(':').map(Number);
+      const verseKey = `${surah}:${ayah}`;
+      const glyphs = w.qpcV2.split(' ');
+      if (glyphs.length === 1) {
+        words.push({ code: w.qpcV2, uthmani: w.word, verseKey, pos, type: 'word', line: l.line });
+        continue;
+      }
+      const tokens = w.word.split(' ');
+      const number = tokens.pop();
+      if (glyphs.length !== 2 || number !== toArabicDigits(ayah)) {
+        fail(`page ${page}: can't split end marker from ${w.location} ("${w.word}" / ${glyphs.length} glyphs)`);
+      }
+      words.push({ code: glyphs[0], uthmani: tokens.join(' '), verseKey, pos, type: 'word', line: l.line });
+      words.push({ code: glyphs[1], uthmani: number, verseKey, pos: pos + 1, type: 'end', line: l.line });
+    }
+  }
+  return { words, labels };
+}
+
 async function pagesForSurah(api, surah) {
   const body = await getJson(api, `/pages/lookup?chapter_number=${surah}&mushaf=1`);
   const pages = Object.keys(body.pages ?? {}).map(Number).filter(Boolean);
@@ -133,7 +174,7 @@ function verseParts(key) {
   return { surah: s, ayah: a };
 }
 
-function buildLayout(page, words, verseCounts) {
+function buildLayout(page, words, verseCounts, labels = null) {
   if (!words.length) fail(`page ${page}: API returned no words`);
 
   const byLine = new Map();
@@ -176,7 +217,9 @@ function buildLayout(page, words, verseCounts) {
     // if the page really ends on the last ayah of its surah.
     const last = words[words.length - 1];
     const lastV = verseParts(last.verseKey);
-    const endsSurah = last.type === 'end' && lastV.ayah === verseCounts[lastV.surah];
+    const endsSurah = last.type === 'end' && (verseCounts
+      ? lastV.ayah === verseCounts[lastV.surah]
+      : labels?.[i + 1]?.surah === lastV.surah + 1);
     const nextSurahGuess = opens ?? (!after && endsSurah ? lastV.surah + 1 : null);
     const expected = nextSurahGuess && !NO_BASMALAH_LINE.has(nextSurahGuess) ? ['surah_name', 'basmalah'] : ['surah_name'];
     if (!nextSurahGuess) {
@@ -191,6 +234,20 @@ function buildLayout(page, words, verseCounts) {
       lines[i + k].surah = nextSurahGuess;
     }
     i = j;
+  }
+
+  // A source that labels its own heading lines must agree with what we worked out.
+  for (const [n, label] of Object.entries(labels ?? {})) {
+    const l = lines[Number(n) - 1];
+    if (l.type !== label.type || (label.surah && l.surah !== label.surah)) {
+      fail(`page ${page}: line ${n} is labelled ${label.type} by the source but looks like ${l.type}`);
+    }
+  }
+
+  // Sanity: glyph codes on a page run in one unbroken sequence.
+  const codes = words.flatMap((w) => [...w.code].map((c) => c.codePointAt(0)));
+  for (let k = 1; k < codes.length; k++) {
+    if (codes[k] !== codes[k - 1] + 1) fail(`page ${page}: glyph codes jump from U+${codes[k - 1].toString(16)} to U+${codes[k].toString(16)}`);
   }
 
   // Sanity: words must run in reading order across the whole page.
@@ -238,12 +295,13 @@ async function fetchVerseCounts(api) {
 }
 
 async function ingestPage(api, page, verseCounts) {
-  const first = await fetchPageWords(api, page);
-  const second = await fetchPageWords(api, page);
-  if (fingerprint(first) !== fingerprint(second)) {
+  const fetchOnce = api.github ? () => fetchPageWordsGithub(page) : async () => ({ words: await fetchPageWords(api, page), labels: null });
+  const first = await fetchOnce();
+  const second = await fetchOnce();
+  if (fingerprint(first.words) !== fingerprint(second.words)) {
     fail(`page ${page}: two identical requests returned different layouts; not writing anything`);
   }
-  const layout = buildLayout(page, first, verseCounts);
+  const layout = { ...buildLayout(page, first.words, verseCounts, first.labels), source: api.label };
   mkdirSync(OUT_DIR, { recursive: true });
   writeFileSync(join(OUT_DIR, `${page}.json`), JSON.stringify(layout, null, 2) + '\n');
   return layout;
@@ -252,6 +310,14 @@ async function ingestPage(api, page, verseCounts) {
 // ---------------------------------------------------------------- main
 
 function parseArgs(argv) {
+  const at = argv.indexOf('--source');
+  const source = at === -1 ? 'api' : argv[at + 1];
+  if (at !== -1) argv = argv.filter((_, i) => i !== at && i !== at + 1);
+  if (source !== 'api' && source !== 'github') fail('--source must be api or github');
+  return { ...parseTarget(argv), source };
+}
+
+function parseTarget(argv) {
   if (argv[0] === '--surah') {
     const s = Number(argv[1]);
     if (!Number.isInteger(s) || s < 1 || s > 114) fail('usage: --surah <1-114>');
@@ -266,11 +332,14 @@ function parseArgs(argv) {
 
 async function main() {
   loadEnv();
-  const api = apiConfig();
   const args = parseArgs(process.argv.slice(2));
+  const api = args.source === 'github'
+    ? { github: true, label: 'github.com/zonetecde/mushaf-layout (community copy, not official)' }
+    : apiConfig();
+  if (api.github && !args.pages) fail('--source github needs page numbers, not --surah');
   const pages = args.pages ?? (await pagesForSurah(api, args.surah));
   console.log(`source: ${api.label}`);
-  const verseCounts = await fetchVerseCounts(api);
+  const verseCounts = api.github ? null : await fetchVerseCounts(api);
 
   let failed = 0;
   for (const page of pages) {
