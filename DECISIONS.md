@@ -47,3 +47,25 @@
   phrase. Checked at phone size: the Arabic reads the same marked or unmarked.
 - **Example:** 14:24 comes pre-split as an example (breaks only, no meanings). It's
   labelled "example" until edited.
+
+# After Phase 3 feedback
+
+- **Colours removed** (user won't use them). The mushaf page shows no marks at rest;
+  only the tapped phrase gets the 8% wash and baseline rule, in the accent.
+- **Verse by verse view** (like quran.com's): each ayah in its mushaf glyphs, grouped
+  into phrases, with The Clear Quran underneath. "Hide translations" covers them for
+  recall; tap one to check. Switching views keeps your place.
+- **Translation source:** The Clear Quran (Dr. Mustafa Khattab, "Allah" edition) from
+  github.com/fawazahmed0/quran-api, pinned; wording matched quran.com for 14:22–23.
+  Saved offline by `scripts/translations.js`.
+- **Suggested grouping for every ayah** (`src/suggest.ts`): the mushaf's pause signs
+  (ۖ ۗ ۘ ۚ) always end a phrase; longer stretches are cut into groups of about 3–5
+  words, preferring cuts after an indefinite noun or before a clause opener, never
+  after a small leaning word, and not between a noun and its adjective. It proposes
+  boundaries only, never meanings. Once you edit an ayah, your grouping is saved and
+  the suggestion no longer moves it; "use suggestion" goes back.
+- **Editing groups:** in verse by verse, a faint dot sits between every two words
+  (tap to split) and a bar between phrases (tap to join).
+- **quran.com's page 258 differs** from the user's printed copy in its middle lines
+  (e.g. where "أن دعوتكم" falls). The app follows the printed copy, which the user
+  checked line by line.

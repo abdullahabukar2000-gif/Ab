@@ -9,6 +9,7 @@ import { renderPage, upgradeToGlyphs } from './render';
 import { paintMarks, type Selection } from './marks';
 import { onChange, phraseAt, wordCount } from './notes';
 import { renderPanel } from './panel';
+import { renderVerses } from './verses';
 
 type Layout = 'single' | 'spread';
 
@@ -19,6 +20,8 @@ const back = document.querySelector<HTMLButtonElement>('#back')!;
 const where = document.querySelector<HTMLElement>('#where')!;
 const layoutButtons = document.querySelectorAll<HTMLButtonElement>('[data-layout]');
 const panel = document.querySelector<HTMLElement>('#panel')!;
+const viewButton = document.querySelector<HTMLButtonElement>('#view')!;
+const coverButton = document.querySelector<HTMLButtonElement>('#cover')!;
 
 const first = availablePages[0];
 const last = availablePages[availablePages.length - 1];
@@ -29,6 +32,9 @@ const store = {
 };
 
 let layout: Layout = store.get('layout') === 'spread' ? 'spread' : 'single';
+type View = 'mushaf' | 'verses';
+let view: View = store.get('view') === 'verses' ? 'verses' : 'mushaf';
+let coverTranslations = store.get('cover') === 'yes';
 let current = initialPage();
 let selection: Selection | null = null;
 let revealed = false;
@@ -47,9 +53,20 @@ function visiblePages(): number[] {
   return [right, right + 1].filter((p) => getPage(p));
 }
 
-function show(): void {
+function show(scrollTo?: string): void {
   const pages = visiblePages();
   stage.dataset.layout = layout;
+  stage.dataset.view = view;
+  document.body.dataset.view = view;
+  viewButton.textContent = view === 'mushaf' ? 'verse by verse' : 'mushaf page';
+  coverButton.setAttribute('aria-pressed', String(coverTranslations));
+  if (view === 'verses') {
+    stage.replaceChildren(renderVerses(pages, { coverTranslations }));
+    const target = scrollTo && document.getElementById(`ayah-${scrollTo.replace(':', '-')}`);
+    if (target) target.scrollIntoView({ block: 'start' }); else stage.scrollTop = 0;
+    afterShow(pages);
+    return;
+  }
   const spread = document.createElement('div');
   spread.className = 'spread';
   spread.dir = 'rtl'; // first child (the odd page) sits on the right
@@ -61,7 +78,10 @@ function show(): void {
   }
   stage.replaceChildren(spread);
   placePanel();
+  afterShow(pages);
+}
 
+function afterShow(pages: number[]): void {
   where.textContent = pages.length > 1 ? `${pages[0]}–${pages[pages.length - 1]}` : String(pages[0]);
   forward.disabled = pages[pages.length - 1] >= last;
   back.disabled = pages[0] <= first;
@@ -88,6 +108,15 @@ function turn(direction: 1 | -1): void {
   show();
 }
 
+/** Switch views without losing your place: the selected ayah, else the page. */
+function setView(next: View, focusKey?: string): void {
+  const key = focusKey ?? selection?.verseKey;
+  view = next;
+  store.set('view', next);
+  if (next === 'verses') { panel.classList.remove('open'); show(key); }
+  else { show(); select(selection); }
+}
+
 function setLayout(next: Layout): void {
   layout = next;
   store.set('layout', next);
@@ -98,10 +127,16 @@ function setLayout(next: Layout): void {
 forward.addEventListener('click', () => turn(1));
 back.addEventListener('click', () => turn(-1));
 layoutButtons.forEach((b) => b.addEventListener('click', () => setLayout(b.dataset.layout as Layout)));
+viewButton.addEventListener('click', () => setView(view === 'mushaf' ? 'verses' : 'mushaf'));
+coverButton.addEventListener('click', () => {
+  coverTranslations = !coverTranslations;
+  store.set('cover', coverTranslations ? 'yes' : 'no');
+  show();
+});
 
 document.addEventListener('keydown', (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
-  if ((e.target as HTMLElement).closest('#panel, #controls')) return;
+  if ((e.target as HTMLElement).closest('#panel, #controls, .verses button, .verses textarea, .verses summary')) return;
   if (e.key === 'Escape') { select(null); return; }
   if (e.key === 'ArrowLeft') { turn(1); wake(); }
   else if (e.key === 'ArrowRight') { turn(-1); wake(); }
@@ -110,7 +145,7 @@ document.addEventListener('keydown', (e) => {
 // Swipe like turning a paper mushaf: drawing the left-hand page across to
 // the right brings the next page.
 let touchX: number | null = null;
-stage.addEventListener('touchstart', (e) => { touchX = e.touches[0].clientX; }, { passive: true });
+stage.addEventListener('touchstart', (e) => { touchX = view === 'mushaf' ? e.touches[0].clientX : null; }, { passive: true });
 stage.addEventListener('touchend', (e) => {
   if (touchX == null) return;
   const dx = e.changedTouches[0].clientX - touchX;
@@ -139,7 +174,12 @@ function select(next: Selection | null): void {
   selection = next;
   if (!next) revealed = false;
   repaint();
-  renderPanel(panel, selection && { selection, revealed }, { select: choose, toggleReveal });
+  if (view !== 'mushaf') return;
+  renderPanel(panel, selection && { selection, revealed }, {
+    select: choose,
+    toggleReveal,
+    editGroups: (key) => setView('verses', key),
+  });
 }
 
 /** Choosing a different phrase starts it covered, like turning up a new card. */
@@ -154,6 +194,7 @@ function toggleReveal(): void {
 }
 
 stage.addEventListener('click', (e) => {
+  if (view !== 'mushaf') return;
   const word = (e.target as HTMLElement).closest<HTMLElement>('.page[data-glyphs="ready"] .w');
   if (!word) { select(null); return; }
   const key = word.dataset.key!;
@@ -164,7 +205,7 @@ stage.addEventListener('click', (e) => {
   else choose({ verseKey: key, start: phrase.start });
 });
 
-onChange(repaint);
+onChange(() => { if (view === 'mushaf') repaint(); });
 
 /** Margin beside the page when there's room for it, a sheet along the bottom when not. */
 function placePanel(): void {

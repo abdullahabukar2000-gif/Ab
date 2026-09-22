@@ -35,3 +35,21 @@ export function ayahWords(key: string): string[] {
   }
   return words;
 }
+
+const translationFiles = import.meta.glob<{ translation: string; verses: Record<string, string> }>(
+  '../data/translations/clear-quran/*.json', { eager: true, import: 'default' },
+);
+const translations = new Map<string, string>();
+for (const file of Object.values(translationFiles)) for (const [k, v] of Object.entries(file.verses)) translations.set(k, v);
+
+export const TRANSLATION_NAME = 'The Clear Quran, Dr. Mustafa Khattab';
+export const translationOf = (key: string) => translations.get(key);
+
+/** Every word of an ayah with the page it sits on, in order, end marker included. */
+export function ayahGlyphs(key: string): { page: number; word: import('./types').Word }[] {
+  const out: { page: number; word: import('./types').Word }[] = [];
+  for (const n of availablePages) {
+    for (const l of pages.get(n)!.lines) for (const w of l.words) if (w.verseKey === key) out.push({ page: n, word: w });
+  }
+  return out.sort((a, b) => a.word.pos - b.word.pos);
+}

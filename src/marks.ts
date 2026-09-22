@@ -1,12 +1,10 @@
-// Phrase marks are drawn as a layer behind the text, not as styles on the
-// words, so a phrase reads as one continuous band across the word gaps and
+// The mushaf page stays clean: only the phrase you tap is marked, with a wash
+// of at most 8% and a 2px baseline rule, drawn in a layer behind the text so
 // nothing is ever painted over the Arabic.
 
-import { isCut, phraseAt } from './notes';
+import { phraseAt } from './notes';
 
 export interface Selection { verseKey: string; start: number }
-
-const wordIndex = (span: HTMLElement) => Number(span.dataset.pos) - 1;
 
 export function paintMarks(pageEl: HTMLElement, selection: Selection | null): void {
   let layer = pageEl.querySelector<HTMLElement>('.marks');
@@ -16,49 +14,34 @@ export function paintMarks(pageEl: HTMLElement, selection: Selection | null): vo
     layer.setAttribute('aria-hidden', 'true');
     pageEl.prepend(layer);
   }
-  if (pageEl.dataset.glyphs !== 'ready') { layer.replaceChildren(); return; }
+  if (!selection || pageEl.dataset.glyphs !== 'ready') { layer.replaceChildren(); return; }
 
+  const phrase = phraseAt(selection.verseKey, selection.start);
+  if (!phrase) { layer.replaceChildren(); return; }
   const origin = pageEl.getBoundingClientRect();
   const em = parseFloat(getComputedStyle(pageEl).fontSize);
   const bands: HTMLElement[] = [];
 
   for (const line of pageEl.querySelectorAll<HTMLElement>('.line.text')) {
-    let run: { key: string; start: number; tone: string; left: number; right: number; top: number; bottom: number } | null = null;
-    const flush = () => {
-      if (!run) return;
-      const band = document.createElement('div');
-      const active = selection?.verseKey === run.key && selection.start === run.start;
-      band.className = active ? 'mark active' : 'mark';
-      band.style.setProperty('--tone', `var(--tone-${run.tone})`);
-      // Stretch a little into the word gaps so neighbouring words join up.
-      const pad = 0.06 * em;
-      Object.assign(band.style, {
-        left: `${run.left - origin.left - pad}px`,
-        width: `${run.right - run.left + 2 * pad}px`,
-        top: `${run.top - origin.top}px`,
-        // Sit the rule just below the glyph box so it clears the lowest kasra.
-        height: `${run.bottom - run.top + 0.14 * em}px`,
-      });
-      bands.push(band);
-      run = null;
-    };
-
-    for (const span of line.querySelectorAll<HTMLElement>('.w')) {
-      const key = span.dataset.key!;
-      if (span.classList.contains('end') || !isCut(key)) { flush(); continue; }
-      const phrase = phraseAt(key, wordIndex(span))!;
-      const r = span.getBoundingClientRect();
-      if (run && run.key === key && run.start === phrase.start) {
-        run.left = Math.min(run.left, r.left);
-        run.right = Math.max(run.right, r.right);
-        run.top = Math.min(run.top, r.top);
-        run.bottom = Math.max(run.bottom, r.bottom);
-      } else {
-        flush();
-        run = { key, start: phrase.start, tone: phrase.tone, left: r.left, right: r.right, top: r.top, bottom: r.bottom };
-      }
-    }
-    flush();
+    const rects = [...line.querySelectorAll<HTMLElement>(`.w[data-key="${selection.verseKey}"]:not(.end)`)]
+      .filter((s) => { const i = Number(s.dataset.pos) - 1; return i >= phrase.start && i <= phrase.end; })
+      .map((s) => s.getBoundingClientRect());
+    if (!rects.length) continue;
+    const left = Math.min(...rects.map((r) => r.left));
+    const right = Math.max(...rects.map((r) => r.right));
+    const top = Math.min(...rects.map((r) => r.top));
+    const bottom = Math.max(...rects.map((r) => r.bottom));
+    const band = document.createElement('div');
+    band.className = 'mark';
+    // Reach a little into the word gaps; sit the rule just clear of the lowest kasra.
+    const pad = 0.06 * em;
+    Object.assign(band.style, {
+      left: `${left - origin.left - pad}px`,
+      width: `${right - left + 2 * pad}px`,
+      top: `${top - origin.top}px`,
+      height: `${bottom - top + 0.14 * em}px`,
+    });
+    bands.push(band);
   }
   layer.replaceChildren(...bands);
 }

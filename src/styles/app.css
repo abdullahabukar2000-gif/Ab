@@ -175,11 +175,11 @@ body {
   #controls { transition: none; }
 }
 
-/* ------------------------------------------------------------------ phrase marks */
+/* ------------------------------------------------------------------ phrase mark */
 
 /*
- * Drawn behind the text, never over it: a baseline rule in the phrase's tone,
- * and for the selected phrase a wash of at most 8%. The Arabic reads the same
+ * Only the tapped phrase is marked, in a layer behind the text: a wash of at
+ * most 8% and a 2px baseline rule in the accent. The Arabic reads the same
  * marked or unmarked.
  */
 .marks { position: absolute; inset: 0; pointer-events: none; }
@@ -188,12 +188,8 @@ body {
 
 .mark {
   position: absolute;
-  border-bottom: 2px solid color-mix(in oklab, var(--tone) var(--mark-rest), transparent);
-  transition: background-color var(--fade), border-color var(--fade);
-}
-.mark.active {
-  background: color-mix(in oklab, var(--tone) var(--mark-wash), transparent);
-  border-bottom-color: var(--tone);
+  background: color-mix(in oklab, var(--accent) var(--mark-wash), transparent);
+  border-bottom: 2px solid var(--accent);
 }
 
 /* ------------------------------------------------------------------ phrase panel */
@@ -215,6 +211,7 @@ body {
   transition: opacity var(--fade), visibility 0s linear 120ms;
 }
 #panel.open { opacity: 1; visibility: visible; transition: opacity var(--fade); }
+body[data-view='verses'] #panel { display: none; }
 
 body[data-panel='margin'] #panel {
   top: 50%;
@@ -236,11 +233,11 @@ body[data-panel='sheet'] #panel {
 }
 body[data-panel='sheet'] .panel-arabic { font-size: 1.35rem; line-height: 1.7; }
 /* On narrow screens the page sits at the top, leaving the bottom for the sheet. */
-body[data-panel='sheet'] #stage { place-items: start center; }
+body[data-panel='sheet'] #stage[data-view='mushaf'] { place-items: start center; }
 
 .panel-head { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
 
-.panel-where, .panel-label {
+.panel-where, .panel-label, .panel-source, .ayah-head, .verses-page, .ayah-phrases summary {
   margin: 0;
   font-size: 0.78rem;
   font-variant-caps: all-small-caps;
@@ -248,15 +245,9 @@ body[data-panel='sheet'] #stage { place-items: start center; }
   color: var(--ink-quiet);
 }
 .panel-where { font-size: 0.85rem; }
-.panel-example {
-  margin-inline-start: 0.6em;
-  padding: 0 0.4em;
-  border: 1px solid var(--hairline);
-  letter-spacing: 0.08em;
-}
-.panel-hint { letter-spacing: 0.04em; font-variant-caps: normal; font-style: italic; }
+.panel-source { letter-spacing: 0.06em; }
 
-.panel-close, .panel-link {
+.panel-close, .panel-link, .panel-action, .ayah-reset {
   font: inherit;
   font-size: 0.78rem;
   font-variant-caps: all-small-caps;
@@ -266,8 +257,11 @@ body[data-panel='sheet'] #stage { place-items: start center; }
   border: 0;
   padding: 0.2rem 0;
   cursor: pointer;
+  text-align: left;
 }
-.panel-close:hover, .panel-link:hover { color: var(--ink); }
+.panel-action { font-size: 0.85rem; color: var(--accent); justify-self: start; }
+.panel-close:hover, .panel-link:hover, .ayah-reset:hover { color: var(--ink); }
+.panel-action:hover { text-decoration: underline 1px; text-underline-offset: 0.3em; }
 
 .panel-arabic {
   margin: 0;
@@ -281,12 +275,14 @@ body[data-panel='sheet'] #stage { place-items: start center; }
   display: block;
   height: 2px;
   margin-top: -0.2em;
-  background: var(--tone);
+  background: var(--accent);
 }
 
 .panel-field { display: grid; gap: 0.3rem; }
+.panel-revealed { display: grid; gap: 1.1rem; }
+.panel-translation { margin: 0; font-size: 1rem; line-height: 1.55; }
 
-.panel-cover {
+.panel-cover, .ayah-cover {
   font: inherit;
   font-style: italic;
   font-size: 0.92rem;
@@ -297,73 +293,156 @@ body[data-panel='sheet'] #stage { place-items: start center; }
   padding: 0.75rem 0.85rem;
   cursor: pointer;
 }
-.panel-cover:hover { color: var(--ink); }
+.panel-cover:hover, .ayah-cover:hover { color: var(--ink); }
 
-#panel textarea {
+#panel textarea, .verses textarea {
   font: inherit;
   color: var(--ink);
   background: var(--paper-deep);
   border: 0;
   border-bottom: 1px solid var(--hairline);
-  padding: 0.55rem 0.7rem;
+  padding: 0.5rem 0.7rem;
   resize: none;
   overflow: hidden;
 }
-#panel textarea::placeholder { color: var(--ink-quiet); font-style: italic; }
-#panel textarea:focus { outline: none; border-bottom-color: var(--accent); }
+#panel textarea::placeholder, .verses textarea::placeholder { color: var(--ink-quiet); font-style: italic; }
+#panel textarea:focus, .verses textarea:focus { outline: none; border-bottom-color: var(--accent); }
+#panel button:focus-visible, .verses button:focus-visible, .verses summary:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
 
-.panel-tones { display: flex; gap: 0.55rem; }
-.panel-tones button {
-  width: 1.15rem;
-  height: 1.15rem;
-  padding: 0;
-  border: 0;
-  background: var(--tone);
-  cursor: pointer;
+/* ------------------------------------------------------------------ verse by verse */
+
+#stage[data-view='verses'] {
+  display: block;
+  overflow-y: auto;
+  container-type: normal;
+  padding-bottom: 4rem;
 }
-.panel-tones button[aria-checked='true'] { outline: 1px solid var(--ink); outline-offset: 2px; }
 
-.panel-split {
+.verses {
+  max-width: 46rem;
+  margin: 0 auto;
+  display: grid;
+  gap: 0;
+}
+
+.verses-page {
+  padding: 1.5rem 0 0.5rem;
+  border-bottom: 1px solid var(--hairline);
+  font-size: 0.85rem;
+}
+
+.ayah {
+  display: grid;
+  gap: 0.9rem;
+  padding: 1.6rem 0 1.8rem;
+  border-bottom: 1px solid var(--hairline);
+  scroll-margin-top: 1rem;
+}
+
+.ayah-head { display: flex; gap: 0.9rem; align-items: baseline; }
+.ayah-num { color: var(--ink); letter-spacing: 0.08em; font-size: 0.9rem; font-variant-numeric: oldstyle-nums; }
+.ayah-status { font-style: italic; font-variant-caps: normal; letter-spacing: 0.02em; }
+.ayah-reset { margin-inline-start: auto; }
+
+/*
+ * The ayah as phrases. Between every two words sits a tap spot: a faint dot
+ * inside a phrase (tap to split there), a clear bar between phrases (tap to
+ * join). Big enough for a thumb, quiet until touched.
+ */
+.ayah-text {
   display: flex;
   flex-wrap: wrap;
   align-items: stretch;
-  row-gap: 0.3rem;
+  row-gap: 0.55rem;
   font-family: var(--arabic);
-  font-size: 1.2rem;
-  line-height: 1.8;
-}
-.split-word {
-  font: inherit;
+  font-size: clamp(1.45rem, 4.2vw, 2rem);
+  line-height: 2;
   color: var(--ink);
-  background: none;
-  border: 0;
-  border-bottom: 2px solid color-mix(in oklab, var(--tone) var(--mark-rest), transparent);
-  padding: 0 0.15em;
-  cursor: pointer;
 }
-.split-word.current { background: color-mix(in oklab, var(--tone) var(--mark-wash), transparent); border-bottom-color: var(--tone); }
+.vw { padding: 0 0.04em; }
+.vw.end { color: var(--accent); padding-inline-start: 0.2em; }
 
-/* The hit zone between two words: invisible until hovered or cut. */
-.split-cut {
-  width: 0.9rem;
+.joint {
+  position: relative;
+  width: 0.62em;
+  min-width: 14px;
   padding: 0;
   border: 0;
   background: none;
   cursor: pointer;
-  position: relative;
+  font-size: inherit;
 }
-.split-cut::before {
+.joint::before {
   content: '';
   position: absolute;
-  inset: 0.35em 50%;
-  width: 1px;
-  background: transparent;
+  left: 50%;
+  top: 50%;
+  width: 4px;
+  height: 4px;
+  margin: -2px 0 0 -2px;
+  border-radius: 50%;
+  background: var(--hairline);
 }
-.split-cut:hover::before, .split-cut:focus-visible::before { background: var(--ink-quiet); }
-.split-cut.on::before { width: 2px; margin-left: -0.5px; background: var(--ink); }
+.joint:hover::before { background: var(--ink-quiet); }
+.joint.split { width: 1.1em; }
+.joint.split::before {
+  top: 18%;
+  bottom: 18%;
+  height: auto;
+  width: 2px;
+  margin: 0 0 0 -1px;
+  border-radius: 0;
+  background: var(--accent);
+}
+.joint.split:hover::before { background: var(--ink); }
 
-#panel button:focus-visible, #panel textarea:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
+.ayah-translation {
+  margin: 0;
+  max-width: 62ch;
+  font-size: 1.06rem;
+  line-height: 1.6;
+}
+.ayah-translation.tappable { cursor: pointer; }
+.ayah-cover { justify-self: start; }
+
+.ayah-phrases summary { cursor: pointer; list-style: none; }
+.ayah-phrases summary::before { content: '+ '; letter-spacing: 0; }
+.ayah-phrases[open] summary::before { content: '– '; }
+.ayah-phrases[open] { display: grid; gap: 1rem; }
+.phrase-row {
+  display: grid;
+  grid-template-columns: minmax(8rem, 13rem) 1fr 1fr;
+  gap: 0.8rem;
+  align-items: end;
+}
+.phrase-arabic { margin: 0; font-family: var(--arabic); font-size: 1.25rem; line-height: 1.8; text-align: right; }
+@container (max-width: 640px) {
+  .phrase-row { grid-template-columns: 1fr; gap: 0.35rem; }
+}
+@media (max-width: 640px) {
+  .phrase-row { grid-template-columns: 1fr; gap: 0.35rem; }
+}
+
+.verses-source { margin: 1.2rem 0 0; font-size: 0.85rem; font-style: italic; color: var(--ink-quiet); }
+
+/* Controls that only make sense in one view. */
+#cover { display: none; }
+body[data-view='verses'] #cover { display: inline; }
+#cover[aria-pressed='true'] { color: var(--ink); text-decoration: underline 1px; text-underline-offset: 0.3em; }
+#controls { z-index: 3; background: var(--paper); padding-inline-end: 0.5rem; }
 
 @media (prefers-reduced-motion: reduce) {
-  #panel, .mark { transition: none; }
+  #panel { transition: none; }
 }
+
+/* Phones: the two-page spread doesn't fit, so its switch goes. */
+@media (max-width: 640px) {
+  #controls [data-layout], #controls .sep-layout { display: none; }
+  #controls { left: 0; right: 0; padding-inline: 12px; gap: 0.6rem; font-size: 0.74rem; justify-content: space-between; }
+  #where { min-width: 2.5em; }
+}
+#controls button { white-space: nowrap; }
+.tie { display: inline-flex; align-items: stretch; white-space: nowrap; }
+
+/* While the phone sheet is open it owns the bottom edge; it has its own close. */
+body[data-panel='sheet'] #panel.open ~ #controls { display: none; }
