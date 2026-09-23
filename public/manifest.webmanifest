@@ -1,0 +1,16 @@
+{
+  "name": "Hifz Mushaf",
+  "short_name": "Hifz",
+  "description": "The 15-line Madani mushaf, with meaning groups and recitation for memorising.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f2efe7",
+  "theme_color": "#f2efe7",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

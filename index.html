@@ -4,6 +4,14 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Hifz Mushaf</title>
+    <meta name="theme-color" content="#f2efe7" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="icons/icon-192.png" />
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Hifz" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   </head>
   <body>
     <header id="topbar">
@@ -16,9 +24,11 @@
         <button id="prev" type="button" class="icon-only"></button>
         <button id="layout" type="button" class="icon-only"></button>
         <button id="cover" type="button" class="icon-only"></button>
+        <button id="listen" type="button" class="icon-only"></button>
       </div>
     </header>
     <main id="stage" aria-live="off"></main>
+    <div id="player" class="player-bar" hidden></div>
     <nav id="tabs" aria-label="Sections">
       <button type="button" data-view="home"></button>
       <button type="button" data-view="mushaf"></button>

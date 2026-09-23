@@ -198,3 +198,20 @@
   (`align-source.py` → `data/align/hand.json`).
 - Plan for hand-checking: one surah at a time, correcting only the blocks that are off,
   starting with the surahs being memorised.
+
+# Website, home-screen app, recitation
+
+- The app is published as a website on GitHub Pages by `.github/workflows/pages.yml` on
+  every push. Fonts are fetched at build time by `scripts/fetch-fonts.js` from the pinned
+  source and checked against `data/font-hashes.json` (sha256), so they stay out of git.
+- Home-screen app: `public/manifest.webmanifest`, icons in `public/icons/`, and a service
+  worker (`public/sw.js`) that keeps the app and every page you've opened for offline use.
+  Settings can save the whole mushaf at once (~210 MB).
+- Recitation: everyayah.com per-ayah MP3s (quranicaudio.com mirror as backup) for
+  Alafasy, Husary, Minshawi (murattal), Maher Al-Muaiqly, Khalifa Al-Tunaiji. Mansour
+  As-Salimi is left out: no per-ayah source could be confirmed.
+- Nothing downloads on its own. A surah is saved for a reciter only when you tap
+  Download; saved recordings play with no connection. Settings lists and removes them.
+- Repeat each ayah (1–10 or always), repeat the range, speed 0.5–1.5×, optional quiet
+  after each ayah. Surahs other than 1 and 9 start with the basmalah (Al-Fatihah's first
+  ayah recording) when the range starts at ayah 1.

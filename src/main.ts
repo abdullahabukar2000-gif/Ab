@@ -5,7 +5,7 @@ import '@fontsource/scheherazade-new/arabic-400.css';
 import '@fontsource/noto-naskh-arabic/arabic-400.css';
 import './styles/tokens.css';
 import './styles/app.css';
-import { availablePages, getChapter, getPage, loadIndex, loadPages, surahsOnPage, TOTAL_PAGES } from './data';
+import { ayahRange, availablePages, getChapter, getPage, loadIndex, loadPages, surahsOnPage, TOTAL_PAGES } from './data';
 import { loadFontUrls } from './fonts';
 import { iconButton, type IconName } from './icons';
 import { renderPage, upgradeToGlyphs } from './render';
@@ -13,7 +13,10 @@ import { renderVerses, resetReveals } from './verses';
 import { renderHome } from './home';
 import { countText, renderSettings, scriptFamily, syncLine, type Mood, type Prefs, type Script } from './settings';
 import { onChange } from './notes';
-import { onSyncState, startSync } from './sync';
+import { claudeHost, onSyncState, startSync } from './sync';
+import { mountPlayerBar, openPlayerSheet, playFrom } from './player';
+import { onPlayer } from './recite';
+import { registerOffline } from './offline';
 
 type View = 'home' | 'mushaf' | 'verses' | 'settings';
 type Layout = 'single' | 'spread';
@@ -25,6 +28,7 @@ const layoutButton = document.querySelector<HTMLButtonElement>('#layout')!;
 const coverButton = document.querySelector<HTMLButtonElement>('#cover')!;
 const nextButton = document.querySelector<HTMLButtonElement>('#next')!;
 const prevButton = document.querySelector<HTMLButtonElement>('#prev')!;
+const listenButton = document.querySelector<HTMLButtonElement>('#listen')!;
 const tabs = document.querySelectorAll<HTMLButtonElement>('#tabs [data-view]');
 
 const store = {
@@ -51,6 +55,8 @@ const TAB_ICONS: Record<View, [IconName, string]> = {
 tabs.forEach((t) => { const [i, l] = TAB_ICONS[t.dataset.view as View]; iconButton(t, i, l); });
 iconButton(nextButton, 'chevronLeft', 'Next page');
 iconButton(prevButton, 'chevronRight', 'Previous page');
+iconButton(listenButton, 'headphones', 'Listen');
+mountPlayerBar(document.querySelector<HTMLElement>('#player')!);
 
 function applyMood(): void {
   if (prefs.mood === 'auto') delete document.documentElement.dataset.mood;
@@ -274,6 +280,37 @@ coverButton.addEventListener('click', () => {
   refresh();
 });
 nextButton.addEventListener('click', () => turn(1));
+// Listen: opens at the surah and first ayah of the page in view.
+listenButton.addEventListener('click', () => {
+  const first = ayahRange(pageInView())?.[0] ?? '1:1';
+  const [surah, ayah] = first.split(':').map(Number);
+  openPlayerSheet(surah, ayah);
+});
+
+// The ayah being recited is marked, in the mushaf and in verse by verse, and kept in view.
+let marked = '';
+onPlayer((n) => {
+  const key = n && !n.basmalah ? `${n.plan.surah}:${n.ayah}` : '';
+  if (key === marked) return;
+  stage.querySelectorAll('.reciting').forEach((el) => el.classList.remove('reciting'));
+  marked = key;
+  if (!key) return;
+  const els = stage.querySelectorAll<HTMLElement>(`.ayah[data-key="${key}"], .w[data-key="${key}"]`);
+  els.forEach((el) => el.classList.add('reciting'));
+  if (view === 'verses' && els[0]) {
+    const box = els[0].getBoundingClientRect();
+    const area = stage.getBoundingClientRect();
+    if (box.top < area.top || box.top > area.bottom - 120) els[0].scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+});
+new MutationObserver(() => {
+  if (!marked) return;
+  stage.querySelectorAll<HTMLElement>(`.ayah[data-key="${marked}"]:not(.reciting), .w[data-key="${marked}"]:not(.reciting)`).forEach((el) => el.classList.add('reciting'));
+}).observe(stage, { childList: true, subtree: true });
+document.addEventListener('play-ayah', (e) => {
+  const [surah, ayah] = (e as CustomEvent<string>).detail.split(':').map(Number);
+  playFrom(surah, ayah);
+});
 prevButton.addEventListener('click', () => turn(-1));
 
 // Arrow keys turn pages in the mushaf; left is forward, as the mushaf reads right to left.
@@ -301,6 +338,7 @@ onSyncState(() => {
 
 applyMood();
 updateChrome();
+if (!claudeHost()) registerOffline();
 // The small page index and the font list come first; pages load as they're reached.
 Promise.all([loadIndex(), loadFontUrls()]).then(() => {
   go(view);

@@ -6,7 +6,11 @@ import { h } from './dom';
 import { icon } from './icons';
 import { editedCount } from './notes';
 import { downloadBackup, readBackup, restoreBackup } from './backup';
-import { syncState, type SyncState } from './sync';
+import { claudeHost, syncState, type SyncState } from './sync';
+import { deleteDownload, listDownloads, reciterById } from './recite';
+import { megabytes } from './player';
+import { canWorkOffline, mushafSaved, saveMushaf } from './offline';
+import { getChapter } from './data';
 
 export type Mood = 'auto' | 'chalk' | 'sepia' | 'night';
 export type Script = 'mushaf' | 'amiri' | 'scheherazade' | 'naskh';
@@ -64,6 +68,8 @@ export function renderSettings(prefs: Prefs, change: (p: Partial<Prefs>) => void
     section('Arabic in verse by verse', scripts,
       h('p', { class: 'setting-note' }, 'The mushaf pages always use the official King Fahd Complex fonts, so they match print exactly.')),
     section('Your work', yourWork()),
+    section('Recitations saved for offline', recitations()),
+    ...(canWorkOffline() && !claudeHost() ? [section('Use without internet', offlineMushaf())] : []),
     section('Where the text comes from', sources()),
   );
   return root;
@@ -128,6 +134,53 @@ function yourWork(): HTMLElement {
   return wrap;
 }
 
+function recitations(): HTMLElement {
+  const wrap = h('div', { class: 'work' }, h('p', { class: 'setting-note' }, 'Loading…'));
+  const fill = async () => {
+    const list = await listDownloads();
+    wrap.replaceChildren();
+    if (!list.length) {
+      wrap.append(h('p', { class: 'setting-note' }, 'None yet. To save a surah, tap Listen, choose the reciter and surah, then Download.'));
+      return;
+    }
+    const total = list.reduce((a, d) => a + d.bytes, 0);
+    wrap.append(h('p', { class: 'setting-note' }, `${list.length} saved, ${megabytes(total)} in all.`));
+    const ul = h('ul', { class: 'downloads' });
+    for (const d of list) {
+      const del = h('button', { type: 'button', class: 'btn small' });
+      del.innerHTML = `${icon('trash')}<span class="label">Remove</span>`;
+      del.addEventListener('click', async () => { await deleteDownload(d.reciter, d.surah); void fill(); });
+      ul.append(h('li', {},
+        h('span', { class: 'download-name' }, `${getChapter(d.surah)?.name_complex ?? d.surah} · ${reciterById(d.reciter).name}`),
+        h('span', { class: 'download-size' }, d.saved < d.total ? `${d.saved} of ${d.total} ayahs · ${megabytes(d.bytes)}` : megabytes(d.bytes)),
+        del));
+    }
+    wrap.append(ul);
+  };
+  void fill();
+  return wrap;
+}
+
+function offlineMushaf(): HTMLElement {
+  const wrap = h('div', { class: 'work' });
+  const note = h('p', { class: 'setting-note' }, 'Pages you open are kept for offline use as you go. You can also save all 604 pages at once (about 210 MB).');
+  const status = h('p', { class: 'work-status', role: 'status' });
+  const save = h('button', { type: 'button', class: 'btn' });
+  save.innerHTML = `${icon('download')}<span class="label">Save the whole mushaf</span>`;
+  save.addEventListener('click', async () => {
+    save.setAttribute('disabled', '');
+    const error = await saveMushaf((done, total) => { status.textContent = `Saving ${done} of ${total} files…`; });
+    status.textContent = error ?? 'The whole mushaf is saved. It works with no internet.';
+    save.removeAttribute('disabled');
+  });
+  wrap.append(note, h('div', { class: 'work-actions' }, save), status);
+  mushafSaved().then(([have, all]) => {
+    if (have >= all) status.textContent = 'The whole mushaf is saved. It works with no internet.';
+    else if (have) status.textContent = `${Math.round((have / all) * 100)}% saved so far.`;
+  }).catch(() => undefined);
+  return wrap;
+}
+
 function sources(): HTMLElement {
   const list = h('ul', { class: 'sources' });
   for (const [what, from] of [
@@ -135,6 +188,7 @@ function sources(): HTMLElement {
     ['Page layout', 'Which word sits on which line: checked against the King Fahd Complex’s own listing and your printed mushaf.'],
     ['Translation', 'The Clear Quran by Dr. Mustafa Khattab, as on quran.com, unchanged.'],
     ['Groups', 'Suggested by matching each part of the translation to the Arabic words it means. Yours to change.'],
+    ['Recitations', 'Per-ayah recordings from everyayah.com, played unchanged.'],
   ]) list.append(h('li', {}, h('span', { class: 'source-what' }, what), h('span', {}, from)));
   return list;
 }

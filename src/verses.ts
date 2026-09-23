@@ -136,6 +136,9 @@ export function renderAyah(key: string, options: VerseOptions): HTMLElement {
     h('span', { class: 'ayah-num' }, key),
     h('span', { class: 'ayah-name' }, ayahLabel(key).replace(/ \d+$/, '')),
     h('span', { class: 'ayah-status' }, suggestedNow ? 'grouped by meaning' : 'your groups'));
+  const listen = iconButton(h('button', { type: 'button', class: 'btn small icon-only ayah-play' }), 'play', `Play from ${key}`);
+  listen.addEventListener('click', () => document.dispatchEvent(new CustomEvent('play-ayah', { detail: key })));
+  head.append(listen);
   if (!suggestedNow) {
     const reset = iconButton(h('button', { type: 'button', class: 'btn small' }), 'undo', 'use suggestion');
     reset.addEventListener('click', () => { resetToSuggested(key); rerender(); });

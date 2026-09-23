@@ -1,0 +1,43 @@
+# Publishes the app as a website on GitHub Pages whenever this branch changes.
+# The page fonts aren't kept in git: scripts/fetch-fonts.js downloads them from
+# the pinned source and checks every file against data/font-hashes.json.
+name: Publish website
+
+on:
+  push:
+    branches: [claude/great-goodall-w4d11z]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: node scripts/fetch-fonts.js
+      - run: npm run build
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
