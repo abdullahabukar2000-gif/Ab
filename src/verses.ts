@@ -1,24 +1,39 @@
-// Verse by verse: each ayah of the pages on screen as a stack of phrase
-// cards. Tap a card to fill in its English; drag the handle between two cards
-// to move words from one to the other.
+// Verse by verse, like quran.com's: each ayah flows across the line, its
+// phrase groups each in a box. Below it sits one English line built from
+// the boxes: tap a box to reveal or hide its part. Drag the edge between two
+// boxes sideways to move words from one to the other.
 
 import { ayahGlyphs, getPage, phraseGloss, surahOfPage, TRANSLATION_NAME, translationOf } from './data';
 import { ensureFont, isConfirmed, pageFamily } from './fonts';
-import { moveBreak, phrasesOf, resetToSuggested, toggleBreak, updatePhrase, usesSuggestion, type Phrase } from './notes';
-import { ayahLabel, h, noteField } from './panel';
+import { moveBreak, phrasesOf, resetToSuggested, toggleBreak, usesSuggestion, type Phrase } from './notes';
+import { ayahLabel, h } from './panel';
 
 export interface VerseOptions { coverTranslations: boolean }
 
-const revealedTranslations = new Set<string>();
-/** Cards showing their English, by "verseKey@start". */
-const openCards = new Set<string>();
-/** How far the pointer moves to shift one word across a boundary. */
-const DRAG_STEP = 26;
+/** Which boxes show their English, per ayah, once the memoriser has tapped any. */
+const revealed = new Map<string, Set<number>>();
+/** Ayahs showing the full Clear Quran sentence instead of the box-by-box English. */
+const fullSentence = new Set<string>();
+
+/** Called when "hide translations" is switched: every ayah goes back to the new default. */
+export function resetReveals(): void { revealed.clear(); }
+
+const isRevealed = (key: string, start: number, options: VerseOptions) =>
+  revealed.get(key)?.has(start) ?? !options.coverTranslations;
+
+function toggleReveal(key: string, start: number, phrases: Phrase[], options: VerseOptions): void {
+  let set = revealed.get(key);
+  if (!set) {
+    set = new Set(options.coverTranslations ? [] : phrases.map((p) => p.start));
+    revealed.set(key, set);
+  }
+  if (set.has(start)) set.delete(start); else set.add(start);
+}
 
 export function renderVerses(pageNumbers: number[], options: VerseOptions): HTMLElement {
   const root = h('div', { class: 'verses' });
   root.append(h('p', { class: 'verses-hint' },
-    'Tap a group to see its meaning. Drag the handle between two groups to move words across; drag a group down to nothing to join it.'));
+    'Tap a box to show or hide its English. Drag the edge between two boxes left or right to move words across. Double-tap a word to split its box there.'));
   const seen = new Set<string>();
   for (const n of pageNumbers) {
     const data = getPage(n);
@@ -31,7 +46,7 @@ export function renderVerses(pageNumbers: number[], options: VerseOptions): HTML
       root.append(renderAyah(key, options));
     }
   }
-  root.append(h('p', { class: 'verses-source' }, `Word by word: quran.com. Translation: ${TRANSLATION_NAME}.`));
+  root.append(h('p', { class: 'verses-source' }, `English by box: quran.com word by word. Full sentence: ${TRANSLATION_NAME}.`));
   return root;
 }
 
@@ -39,17 +54,18 @@ export function renderAyah(key: string, options: VerseOptions): HTMLElement {
   const article = h('article', { class: 'ayah', id: `ayah-${key.replace(':', '-')}` });
   article.dataset.key = key;
   let current = article;
-  const rerender = (focus?: string) => {
+  const rerender = () => {
     const next = renderAyah(key, options);
     current.replaceWith(next);
     current = next;
-    if (focus) next.querySelector<HTMLElement>(focus)?.focus();
+    return next;
   };
 
   // --- heading: where, and whether the grouping is the suggestion or yours
   const suggestedNow = usesSuggestion(key);
   const head = h('header', { class: 'ayah-head' },
-    h('span', { class: 'ayah-num' }, ayahLabel(key)),
+    h('span', { class: 'ayah-num' }, key),
+    h('span', { class: 'ayah-name' }, ayahLabel(key).replace(/ \d+$/, '')),
     h('span', { class: 'ayah-status' }, suggestedNow ? 'suggested groups' : 'your groups'));
   if (!suggestedNow) {
     const reset = h('button', { type: 'button', class: 'ayah-reset' }, 'use suggestion');
@@ -57,135 +73,141 @@ export function renderAyah(key: string, options: VerseOptions): HTMLElement {
     head.append(reset);
   }
 
-  // --- the phrase cards, with a drag handle between each pair
+  // --- the ayah, flowing across the line, one box per phrase
   const phrases = phrasesOf(key);
   const glyphs = ayahGlyphs(key);
-  const cards = h('div', { class: 'cards' });
+  const text = h('div', { class: 'ayah-text', dir: 'rtl', lang: 'ar' });
   phrases.forEach((p, i) => {
-    cards.append(card(key, p, glyphs, i === phrases.length - 1, rerender));
-    if (i < phrases.length - 1) cards.append(handle(key, p, rerender));
-  });
-
-  // --- the whole ayah's translation, optionally covered for recall
-  const translation = translationOf(key) ?? 'No translation saved for this ayah yet.';
-  let tr: HTMLElement;
-  if (options.coverTranslations && !revealedTranslations.has(key)) {
-    tr = h('button', { type: 'button', class: 'ayah-cover' }, 'Full translation hidden. Tap to check yourself.');
-    tr.addEventListener('click', () => { revealedTranslations.add(key); rerender(); });
-  } else {
-    tr = h('p', { class: 'ayah-translation' }, translation);
-    if (options.coverTranslations) {
-      tr.classList.add('tappable');
-      tr.addEventListener('click', () => { revealedTranslations.delete(key); rerender(); });
+    const last = i === phrases.length - 1;
+    const open = isRevealed(key, p.start, options);
+    const box = h('button', { type: 'button', class: `box${open ? ' open' : ''}`, 'aria-pressed': String(open) });
+    box.dataset.start = String(p.start);
+    for (const { page, word } of glyphs) {
+      const w = word.pos - 1;
+      if (word.type !== 'word' || w < p.start || w > p.end) continue;
+      const span = h('span', { class: 'vw' }, word.uthmani);
+      span.dataset.page = String(page);
+      span.dataset.code = word.code;
+      span.dataset.index = String(w);
+      box.append(span);
     }
-  }
+    box.addEventListener('click', () => { toggleReveal(key, p.start, phrases, options); rerender(); });
+    box.addEventListener('dblclick', (e) => {
+      const index = Number((e.target as HTMLElement).closest<HTMLElement>('.vw')?.dataset.index);
+      if (Number.isInteger(index) && index < p.end) { toggleBreak(key, index); rerender(); }
+    });
 
-  article.append(head, cards, tr);
+    const unit = h('span', { class: 'box-unit' }, box);
+    if (!last) unit.append(edge(key, p, rerender));
+    else {
+      const marker = glyphs.find((g) => g.word.type === 'end');
+      if (marker) {
+        const span = h('span', { class: 'vw end' }, marker.word.uthmani);
+        span.dataset.page = String(marker.page);
+        span.dataset.code = marker.word.code;
+        unit.append(span);
+      }
+    }
+    text.append(unit);
+  });
+  upgradeGlyphs(text);
+
+  article.append(head, text, english(key, phrases, options, rerender));
   return article;
 }
 
-function card(key: string, p: Phrase, glyphs: ReturnType<typeof ayahGlyphs>, last: boolean, rerender: (focus?: string) => void): HTMLElement {
-  const id = `${key}@${p.start}`;
-  const open = openCards.has(id);
-  const el = h('div', { class: `card${open ? ' open' : ''}` });
-
-  // The Arabic is the button: tap to fill in (or hide) the English.
-  const face = h('button', { type: 'button', class: 'card-face', 'aria-expanded': String(open), dir: 'rtl', lang: 'ar' });
-  for (const { page, word } of glyphs) {
-    const i = word.pos - 1;
-    const inPhrase = word.type === 'word' ? i >= p.start && i <= p.end : last;
-    if (!inPhrase) continue;
-    const span = h('span', { class: word.type === 'end' ? 'vw end' : 'vw' }, word.uthmani);
-    span.dataset.page = String(page);
-    span.dataset.code = word.code;
-    face.append(span, ' ');
-  }
-  upgradeGlyphs(face);
-  face.addEventListener('click', () => {
-    if (open) openCards.delete(id); else openCards.add(id);
-    rerender(`.card-face[data-id="${CSS.escape(id)}"]`);
+/**
+ * The one English line under the ayah. Box by box it holds each box's words
+ * in English, shown only for the boxes you've revealed; or, on request, the
+ * full translated sentence.
+ */
+function english(key: string, phrases: Phrase[], options: VerseOptions, rerender: () => void): HTMLElement {
+  const wrap = h('div', { class: 'ayah-english' });
+  const switcher = h('button', { type: 'button', class: 'english-switch' });
+  switcher.addEventListener('click', () => {
+    if (fullSentence.has(key)) fullSentence.delete(key); else fullSentence.add(key);
+    rerender();
   });
-  face.dataset.id = id;
-  el.append(face);
 
-  if (open) {
-    const gloss = phraseGloss(key, p.start, p.end);
-    el.append(h('p', { class: 'card-gloss' }, gloss ?? 'No word-by-word English saved for this ayah yet.'));
-    // Your own writing stays folded away unless there is some.
-    const mine = h('details', { class: 'card-mine-fields' },
-      h('summary', {}, p.meaning || p.note ? 'Your meaning and note' : 'Add your own meaning or note'),
-      noteField('Your meaning', `c-meaning-${key}-${p.start}`, p.meaning, 'Your own words for this group',
-        (v) => updatePhrase(key, p.start, { meaning: v })),
-      noteField('Note', `c-note-${key}-${p.start}`, p.note, 'Memorisation note',
-        (v) => updatePhrase(key, p.start, { note: v })));
-    if (p.meaning || p.note) (mine as HTMLDetailsElement).open = true;
-    el.append(mine);
-    if (p.end > p.start) {
-      const split = h('button', { type: 'button', class: 'card-split' }, 'Split in two');
-      split.addEventListener('click', () => {
-        toggleBreak(key, p.start + Math.floor((p.end - p.start - 1) / 2));
-        rerender();
-      });
-      el.append(split);
-    }
-  } else if (p.meaning) {
-    el.append(h('p', { class: 'card-mine' }, p.meaning));
+  if (fullSentence.has(key)) {
+    wrap.append(h('p', { class: 'english-line' }, translationOf(key) ?? 'No translation saved for this ayah yet.'));
+    switcher.textContent = '← back to box by box';
+  } else {
+    const line = h('p', { class: 'english-line' });
+    phrases.forEach((p) => {
+      const open = isRevealed(key, p.start, options);
+      const gloss = phraseGloss(key, p.start, p.end) ?? '…';
+      // A hidden part keeps its length as a blank, like a word covered on a flashcard.
+      // A span, not a button, so a long part wraps with the sentence like ordinary text.
+      const part = h('span', { class: `english-part${open ? ' open' : ''}`, role: 'button', tabindex: '0' }, gloss);
+      part.setAttribute('aria-label', open ? gloss : 'Hidden. Tap to reveal.');
+      const flip = () => { toggleReveal(key, p.start, phrases, options); rerender(); };
+      part.addEventListener('click', flip);
+      part.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); flip(); } });
+      line.append(part, ' ');
+    });
+    wrap.append(line);
+    switcher.textContent = 'show the full sentence';
   }
-  return el;
+  wrap.append(switcher);
+  return wrap;
 }
 
 /**
- * The boundary after phrase `p`. Drag it down to pull the next group's first
- * words up into this one, or up to push this group's last words down. Arrow
- * keys do the same one word at a time.
+ * The edge after phrase `p`. Drag it over a word and the boundary moves there:
+ * the box before ends at that word. Drag it past a whole box and the two join.
+ * Arrow keys move it a word at a time.
  */
-function handle(key: string, p: Phrase, rerender: (focus?: string) => void): HTMLElement {
-  const grip = h('button', {
-    type: 'button',
-    class: 'handle',
-    'aria-label': 'Move the boundary between these two groups: drag, or use the up and down arrow keys',
+function edge(key: string, p: Phrase, rerender: () => HTMLElement): HTMLElement {
+  const grip = h('span', {
+    class: 'edge',
+    role: 'slider',
+    tabindex: '0',
+    'aria-label': 'Boundary between two groups: drag left or right, or use the arrow keys',
+    'aria-valuenow': String(p.end + 1),
   });
   grip.dataset.end = String(p.end);
-  const focusSel = (end: number) => `.handle[data-end="${end}"]`;
 
   grip.addEventListener('keydown', (e) => {
-    const step = e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : 0;
+    // Right to left: the left arrow moves the edge on through the ayah.
+    const step = e.key === 'ArrowLeft' ? 1 : e.key === 'ArrowRight' ? -1 : 0;
     if (!step) return;
     e.preventDefault();
+    e.stopPropagation();
     moveBreak(key, p.end, p.end + step);
-    rerender(focusSel(p.end + step));
+    rerender().querySelector<HTMLElement>(`.edge[data-end="${p.end + step}"]`)?.focus();
   });
 
   grip.addEventListener('pointerdown', (e) => {
     e.preventDefault();
-    const startY = e.clientY;
     let end = p.end;
-    let moved = false;
     document.body.classList.add('dragging');
+    let live = grip;
+    live.classList.add('active');
     const move = (ev: PointerEvent) => {
-      const target = p.end + Math.round((ev.clientY - startY) / DRAG_STEP);
-      if (target === end) return;
+      const under = document.elementFromPoint(ev.clientX, ev.clientY)?.closest<HTMLElement>('.vw:not(.end)');
+      const article = under?.closest<HTMLElement>('.ayah');
+      if (!under || article?.dataset.key !== key) return;
+      const target = Number(under.dataset.index);
+      if (!Number.isInteger(target) || target === end) return;
       moveBreak(key, end, target);
-      moved = true;
-      // If the move joined the groups there is no boundary left to drag.
+      const next = rerender();
       const still = phrasesOf(key).some((q) => q.end === target);
+      if (!still) { stop(); return; }
       end = target;
-      rerender(still ? focusSel(target) : undefined);
-      document.querySelector(`[data-key="${key}"] ${focusSel(target)}`)?.classList.add('active');
-      if (!still) stop();
+      live = next.querySelector<HTMLElement>(`.edge[data-end="${target}"]`) ?? live;
+      live.classList.add('active');
     };
     const stop = () => {
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', stop);
       window.removeEventListener('pointercancel', stop);
       document.body.classList.remove('dragging');
-      document.querySelectorAll('.handle.active').forEach((n) => n.classList.remove('active'));
-      if (!moved) grip.focus();
+      document.querySelectorAll('.edge.active').forEach((n) => n.classList.remove('active'));
     };
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', stop);
     window.addEventListener('pointercancel', stop);
-    grip.classList.add('active');
   });
   return grip;
 }

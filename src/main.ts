@@ -9,7 +9,7 @@ import { renderPage, upgradeToGlyphs } from './render';
 import { paintMarks, type Selection } from './marks';
 import { onChange, phraseAt, wordCount } from './notes';
 import { renderPanel } from './panel';
-import { renderVerses } from './verses';
+import { renderVerses, resetReveals } from './verses';
 
 type Layout = 'single' | 'spread';
 
@@ -130,6 +130,7 @@ layoutButtons.forEach((b) => b.addEventListener('click', () => setLayout(b.datas
 viewButton.addEventListener('click', () => setView(view === 'mushaf' ? 'verses' : 'mushaf'));
 coverButton.addEventListener('click', () => {
   coverTranslations = !coverTranslations;
+  resetReveals();
   store.set('cover', coverTranslations ? 'yes' : 'no');
   show();
 });

@@ -354,8 +354,8 @@ body[data-panel='sheet'] #stage[data-view='mushaf'] { place-items: start center;
 .ayah-reset { margin-inline-start: auto; }
 
 /*
- * The ayah as a stack of phrase cards. Tapping a card fills in its English.
- * Between two cards sits a grip: drag it to move words across the boundary.
+ * The ayah flows across the line as in quran.com, each phrase group in a box.
+ * Between two boxes, an edge you can drag sideways to move words across.
  */
 .verses-hint {
   margin: 1rem 0 0;
@@ -366,89 +366,102 @@ body[data-panel='sheet'] #stage[data-view='mushaf'] { place-items: start center;
   color: var(--ink-quiet);
 }
 
-.cards { display: grid; }
-
-.card {
-  display: grid;
-  gap: 0.6rem;
+.ayah-num {
+  padding: 0.1rem 0.5rem;
   border: 1px solid var(--card-rule);
-  border-radius: 6px;
-  background: var(--paper);
-  padding: 0.35rem 1rem 0.6rem;
-  transition: border-color var(--fade), background-color var(--fade);
+  border-radius: 4px;
+  color: var(--ink);
+  font-variant-caps: normal;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
 }
-.card.open { border-color: var(--accent); background: color-mix(in oklab, var(--accent) 4%, var(--paper)); padding-bottom: 1rem; }
+.ayah-name { letter-spacing: 0.1em; }
 
-.card-face {
+.ayah-text {
   display: flex;
   flex-wrap: wrap;
-  justify-content: flex-start;
-  gap: 0 0.32em;
-  width: 100%;
-  padding: 0.25rem 0 0;
-  border: 0;
-  background: none;
-  cursor: pointer;
-  color: var(--ink);
+  align-items: center;
+  row-gap: 0.55rem;
   font-family: var(--arabic);
-  font-size: clamp(1.5rem, 5vw, 2rem);
-  line-height: 2;
-  text-align: right;
+  font-size: clamp(1.2rem, 5.2vw, 1.95rem);
+  line-height: 1.9;
+  color: var(--ink);
 }
-.vw.end { color: var(--accent); }
 
-.card-gloss { margin: 0; font-size: 1.08rem; line-height: 1.5; }
-.card-mine-fields { display: grid; gap: 0.7rem; }
-.card-mine-fields[open] { padding-bottom: 0.2rem; }
-.card-mine-fields summary {
+/* A box and the edge after it stay together when the line wraps. */
+.box-unit { display: inline-flex; align-items: stretch; }
+
+.box {
+  display: inline-flex;
+  gap: 0.24em;
+  padding: 0 0.22em;
+  font: inherit;
+  line-height: inherit;
+  color: inherit;
+  background: var(--paper);
+  border: 1.5px solid var(--card-rule);
+  border-radius: 7px;
   cursor: pointer;
-  list-style: none;
-  font-size: 0.9rem;
-  color: var(--accent);
+  transition: border-color var(--fade), background-color var(--fade);
 }
-.card-mine-fields summary::-webkit-details-marker { display: none; }
-.card-mine-fields summary::before { content: '+ '; }
-.card-mine-fields[open] summary::before { content: '– '; }
-.card-mine { margin: 0 0 0.2rem; font-size: 0.95rem; font-style: italic; color: var(--ink-quiet); }
-.card-split {
-  justify-self: start;
+.box:hover { border-color: var(--ink-quiet); }
+.box.open { border-color: var(--accent); background: color-mix(in oklab, var(--accent) 7%, var(--paper)); }
+.vw.end { color: var(--accent); padding-inline: 0.2em; display: inline-flex; align-items: center; }
+
+/* The draggable edge between two boxes: a wide target, a slim grip. */
+.edge {
+  position: relative;
+  width: 0.5em;
+  min-width: 12px;
+  cursor: ew-resize;
+  touch-action: none;
+}
+.edge::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 22%;
+  bottom: 22%;
+  width: 4px;
+  margin-left: -2px;
+  border-radius: 2px;
+  background: var(--card-rule);
+  transition: background-color var(--fade);
+}
+.edge:hover::before, .edge:focus-visible::before, .edge.active::before { background: var(--accent); }
+.edge:focus-visible { outline: none; }
+body.dragging, body.dragging * { cursor: ew-resize !important; user-select: none; }
+
+/* One English line, filled in box by box. */
+.ayah-english { display: grid; gap: 0.4rem; justify-items: start; }
+.english-line { margin: 0; max-width: 62ch; font-size: 1.12rem; line-height: 1.75; }
+.english-part {
+  color: var(--ink);
+  padding: 0.05em 0.1em;
+  border-radius: 2px;
+  cursor: pointer;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+/* Covered: the words' length stays as a pale blank, like a covered flashcard. */
+.english-part:not(.open) {
+  color: transparent;
+  background: var(--paper-deep);
+  box-shadow: inset 0 -1.5px 0 var(--card-rule);
+  user-select: none;
+}
+.english-part:focus-visible { outline: 1px solid var(--accent); outline-offset: 1px; }
+.english-part.open:hover { background: var(--accent-wash); }
+.english-switch {
   font: inherit;
   font-size: 0.85rem;
   color: var(--accent);
   background: none;
-  border: 1px solid var(--accent);
-  border-radius: 4px;
-  padding: 0.3rem 0.8rem;
+  border: 0;
+  padding: 0.2rem 0;
   cursor: pointer;
 }
-.card-split:hover { background: var(--accent-wash); }
-
-/* The grip between two cards: a big target, a small visible bar. */
-.handle {
-  position: relative;
-  height: 1.6rem;
-  width: 100%;
-  padding: 0;
-  border: 0;
-  background: none;
-  cursor: ns-resize;
-  touch-action: none;
-}
-.handle::before {
-  content: '';
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 2.6rem;
-  height: 5px;
-  margin: -2.5px 0 0 -1.3rem;
-  border-radius: 3px;
-  background: var(--card-rule);
-  transition: background-color var(--fade), width var(--fade);
-}
-.handle:hover::before, .handle:focus-visible::before, .handle.active::before { background: var(--accent); }
-.handle:focus-visible { outline: none; }
-body.dragging, body.dragging * { cursor: ns-resize !important; user-select: none; }
+.english-switch:hover { text-decoration: underline 1px; text-underline-offset: 0.3em; }
 
 .ayah-translation {
   margin: 0;

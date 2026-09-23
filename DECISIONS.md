@@ -84,3 +84,17 @@
   two. Arrow keys move one word at a time. "Split in two" on an open card.
 - **Bottom buttons** are always visible now, in the accent colour, on a bar; the
   selected option is filled. (The spec's fade-away controls were too hard to see.)
+
+# Boxes across the line (after card feedback)
+
+- **Verse by verse flows horizontally again**, like quran.com: each phrase group sits in
+  a box within the ayah's line, boxes wrapping naturally. No vertical card stack.
+- **One English line per ayah, built box by box** from quran.com's word-by-word English.
+  Tapping a box (or its part of the English) reveals or hides that box's part; a hidden
+  part keeps its length as a pale blank. "Hide translations" sets whether parts start
+  hidden. "Show the full sentence" swaps the line for The Clear Quran and back.
+- **Regrouping:** drag the grip between two boxes left or right onto a word; the box
+  before ends at that word. Dragging past a whole box joins the two. Double-tap a word
+  to split its box after it. Arrow keys move a focused grip one word.
+- Per-phrase meaning/note fields are no longer in verse by verse (they stay in the
+  mushaf page's phrase panel).
