@@ -138,8 +138,8 @@ document.addEventListener('keydown', (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   if ((e.target as HTMLElement).closest('#panel, #controls, .verses button, .verses textarea, .verses summary')) return;
   if (e.key === 'Escape') { select(null); return; }
-  if (e.key === 'ArrowLeft') { turn(1); wake(); }
-  else if (e.key === 'ArrowRight') { turn(-1); wake(); }
+  if (e.key === 'ArrowLeft') turn(1);
+  else if (e.key === 'ArrowRight') turn(-1);
 });
 
 // Swipe like turning a paper mushaf: drawing the left-hand page across to
@@ -152,17 +152,6 @@ stage.addEventListener('touchend', (e) => {
   touchX = null;
   if (Math.abs(dx) > 60) turn(dx > 0 ? 1 : -1);
 });
-
-// Controls sit almost invisible until there's intent to use them.
-let idle: number | undefined;
-function wake(): void {
-  controls.classList.add('awake');
-  clearTimeout(idle);
-  idle = window.setTimeout(() => { if (!controls.matches(':focus-within, :hover')) controls.classList.remove('awake'); }, 2400);
-}
-document.addEventListener('pointermove', wake, { passive: true });
-document.addEventListener('pointerdown', wake, { passive: true });
-controls.addEventListener('focusin', wake);
 
 // ------------------------------------------------------------------ phrases
 
@@ -228,4 +217,3 @@ addEventListener('hashchange', () => {
 });
 
 show();
-wake();

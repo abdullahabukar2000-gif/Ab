@@ -92,6 +92,21 @@ export function toggleBreak(key: string, index: number): void {
   persist(key);
 }
 
+/**
+ * Move the end of the phrase that ends at word `from` to word `to`. If that
+ * empties either neighbouring phrase, the two are joined instead.
+ */
+export function moveBreak(key: string, from: number, to: number): void {
+  const note = ensure(key);
+  const at = note.breaks.indexOf(from);
+  if (at === -1 || to === from) return;
+  const prev = at > 0 ? note.breaks[at - 1] : -1;
+  const next = at < note.breaks.length - 1 ? note.breaks[at + 1] : wordCount(key) - 1;
+  if (to <= prev || to >= next) note.breaks.splice(at, 1);
+  else note.breaks[at] = to;
+  persist(key);
+}
+
 /** Go back to the suggested grouping, keeping anything written against phrases that still exist. */
 export function resetToSuggested(key: string): void {
   const note = notes.get(key);

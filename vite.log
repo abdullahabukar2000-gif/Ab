@@ -1,0 +1,8 @@
+7:39:26 AM [vite] (client) Re-optimizing dependencies because lockfile has changed
+
+  VITE v8.3.0  ready in 1693 ms
+
+  ➜  Local:   http://localhost:5173/
+  ➜  Network: use --host to expose
+7:40:33 AM [vite] (client) page reload src/verses.ts
+7:40:33 AM [vite] (client) hmr update /src/styles/app.css

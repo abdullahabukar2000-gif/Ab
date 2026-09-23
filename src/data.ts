@@ -53,3 +53,19 @@ export function ayahGlyphs(key: string): { page: number; word: import('./types')
   }
   return out.sort((a, b) => a.word.pos - b.word.pos);
 }
+
+const wbwFiles = import.meta.glob<{ verses: Record<string, string[]> }>('../data/wbw/*.json', { eager: true, import: 'default' });
+const wbw = new Map<string, string[]>();
+for (const file of Object.values(wbwFiles)) for (const [k, v] of Object.entries(file.verses)) wbw.set(k, v);
+
+/**
+ * Word-by-word English for words `start`..`end` of an ayah, joined. quran.com
+ * repeats a gloss across the words it spans ("Allah sets forth" twice), so a
+ * repeat is shown once.
+ */
+export function phraseGloss(key: string, start: number, end: number): string | undefined {
+  const list = wbw.get(key);
+  if (!list) return undefined;
+  const parts = list.slice(start, end + 1).filter((g, i, arr) => g && g !== arr[i - 1]);
+  return parts.join(' ');
+}

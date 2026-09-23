@@ -17,7 +17,8 @@
 
   --mark-wash: 8%;    /* the tapped phrase's tint: at most 8% */
 
-  --paper-deep: #f2ede1; /* covered flashcard, text fields */
+  --paper-deep: #f2ede1;
+  --card-rule: #d9d0bd;  /* phrase card border and drag grip */ /* covered flashcard, text fields */
 
   /* type */
   --serif: 'Newsreader Variable', 'Source Serif 4', 'Iowan Old Style', Georgia, serif;

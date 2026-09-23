@@ -1,7 +1,7 @@
 // The phrase panel on the mushaf page: in the margin beside the page on wide
 // screens, a sheet below the page on narrow ones. Never over the text.
 
-import { ayahWords, getChapter, TRANSLATION_NAME, translationOf } from './data';
+import { ayahWords, getChapter, phraseGloss, TRANSLATION_NAME, translationOf } from './data';
 import { phrasesOf, updatePhrase, type Phrase } from './notes';
 import type { Selection } from './marks';
 
@@ -56,16 +56,20 @@ export function renderPanel(root: HTMLElement, state: PanelState | null, actions
 /** Covered until the phrase is tapped again: the ayah's translation and your own meaning. */
 function flashcard(key: string, phrase: Phrase, revealed: boolean, actions: Actions): HTMLElement {
   if (!revealed) {
-    const cover = h('button', { class: 'panel-cover', type: 'button' }, 'Translation hidden. Tap the phrase again, or here, to check yourself.');
+    const cover = h('button', { class: 'panel-cover', type: 'button' }, 'Meaning hidden. Tap the phrase again, or here, to check yourself.');
     cover.addEventListener('click', actions.toggleReveal);
     return cover;
   }
   const hide = h('button', { class: 'panel-link', type: 'button' }, 'hide');
   hide.addEventListener('click', actions.toggleReveal);
   const text = translationOf(key);
+  const gloss = phraseGloss(key, phrase.start, phrase.end);
   return h('div', { class: 'panel-revealed' },
     h('div', { class: 'panel-field' },
-      h('span', { class: 'panel-label' }, 'Translation of the ayah ', hide),
+      h('span', { class: 'panel-label' }, 'This phrase, word by word ', hide),
+      h('p', { class: 'panel-gloss' }, gloss ?? 'No word-by-word English saved for this ayah yet.')),
+    h('div', { class: 'panel-field' },
+      h('span', { class: 'panel-label' }, 'The whole ayah'),
       h('p', { class: 'panel-translation' }, text ?? 'No translation saved for this ayah yet.'),
       h('span', { class: 'panel-source' }, TRANSLATION_NAME)),
     noteField('Your meaning of this phrase', `meaning-${key}-${phrase.start}`, phrase.meaning, 'Write what this phrase means to you',

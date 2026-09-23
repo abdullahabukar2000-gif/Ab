@@ -69,3 +69,18 @@
 - **quran.com's page 258 differs** from the user's printed copy in its middle lines
   (e.g. where "أن دعوتكم" falls). The app follows the printed copy, which the user
   checked line by line.
+
+# Phrase cards (after verse-by-verse feedback)
+
+- **Verse by verse is now a stack of phrase cards** per ayah (inspired by the user's
+  flashcard screenshot). Tap a card to fill in its English; tap again to hide it.
+- **Card English is quran.com's word-by-word translation**, joined for the words in
+  the card (repeated glosses shown once). Source: npm
+  @kmaslesa/holy-quran-word-by-word-full-data@1.0.6, saved offline by
+  `scripts/wordbyword.js`, which checks every ayah's word count matches ours. The
+  full Clear Quran translation stays under each ayah.
+- **Regrouping by dragging:** a grip between two cards; drag down to pull words up
+  into the card above, up to push words down. Dragging a card to nothing joins the
+  two. Arrow keys move one word at a time. "Split in two" on an open card.
+- **Bottom buttons** are always visible now, in the accent colour, on a bar; the
+  selected option is filled. (The spec's fade-away controls were too hard to see.)

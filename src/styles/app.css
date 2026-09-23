@@ -15,7 +15,7 @@ body {
 
 #stage {
   height: 100%;
-  padding: max(16px, env(safe-area-inset-top)) 16px max(28px, env(safe-area-inset-bottom));
+  padding: max(16px, env(safe-area-inset-top)) 16px calc(3.2rem + env(safe-area-inset-bottom));
   display: grid;
   place-items: center;
   container-type: size;
@@ -140,35 +140,43 @@ body {
 
 #controls {
   position: fixed;
-  left: 16px;
-  bottom: max(6px, env(safe-area-inset-bottom));
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 3;
   display: flex;
-  align-items: baseline;
-  gap: 0.9rem;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 1.1rem;
+  padding: 0.45rem 16px max(0.45rem, env(safe-area-inset-bottom));
+  background: var(--paper);
+  border-top: 1px solid var(--hairline);
   font-family: var(--serif);
-  font-size: 0.8rem;
-  color: var(--ink-quiet);
-  opacity: 0.14;
-  transition: opacity var(--fade);
+  font-size: 0.9rem;
+  color: var(--accent);
 }
-#controls.awake, #controls:focus-within, #controls:hover { opacity: 1; }
 
 #controls button {
   font: inherit;
-  font-variant-caps: all-small-caps;
-  letter-spacing: 0.1em;
-  color: inherit;
+  font-weight: 500;
+  color: var(--accent);
   background: none;
   border: 0;
-  padding: 0.35rem 0;
+  padding: 0.45rem 0.1rem;
   cursor: pointer;
+  white-space: nowrap;
 }
-#controls button:hover:not(:disabled) { color: var(--ink); }
-#controls button:disabled { opacity: 0.4; cursor: default; }
-#controls button[aria-pressed='true'] { color: var(--ink); text-decoration: underline 1px; text-underline-offset: 0.3em; }
-#controls button:focus-visible { outline: 1px solid var(--accent); outline-offset: 3px; }
+#controls button:hover:not(:disabled) { text-decoration: underline 1px; text-underline-offset: 0.3em; }
+#controls button:disabled { color: var(--ink-quiet); opacity: 0.45; cursor: default; }
+#controls button[aria-pressed='true'] {
+  color: var(--paper);
+  background: var(--accent);
+  border-radius: 4px;
+  padding-inline: 0.6rem;
+}
+#controls button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-#where { font-variant-numeric: oldstyle-nums tabular-nums; min-width: 3.5em; text-align: center; }
+#where { font-variant-numeric: tabular-nums; min-width: 3.5em; text-align: center; color: var(--ink); }
 .sep { width: 1px; height: 0.8em; background: var(--hairline); align-self: center; }
 
 @media (prefers-reduced-motion: reduce) {
@@ -237,7 +245,7 @@ body[data-panel='sheet'] #stage[data-view='mushaf'] { place-items: start center;
 
 .panel-head { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
 
-.panel-where, .panel-label, .panel-source, .ayah-head, .verses-page, .ayah-phrases summary {
+.panel-where, .panel-label, .panel-source, .ayah-head, .verses-page {
   margin: 0;
   font-size: 0.78rem;
   font-variant-caps: all-small-caps;
@@ -281,6 +289,7 @@ body[data-panel='sheet'] #stage[data-view='mushaf'] { place-items: start center;
 .panel-field { display: grid; gap: 0.3rem; }
 .panel-revealed { display: grid; gap: 1.1rem; }
 .panel-translation { margin: 0; font-size: 1rem; line-height: 1.55; }
+.panel-gloss { margin: 0; font-size: 1.1rem; line-height: 1.5; }
 
 .panel-cover, .ayah-cover {
   font: inherit;
@@ -315,7 +324,7 @@ body[data-panel='sheet'] #stage[data-view='mushaf'] { place-items: start center;
   display: block;
   overflow-y: auto;
   container-type: normal;
-  padding-bottom: 4rem;
+  padding-bottom: 6rem;
 }
 
 .verses {
@@ -345,56 +354,101 @@ body[data-panel='sheet'] #stage[data-view='mushaf'] { place-items: start center;
 .ayah-reset { margin-inline-start: auto; }
 
 /*
- * The ayah as phrases. Between every two words sits a tap spot: a faint dot
- * inside a phrase (tap to split there), a clear bar between phrases (tap to
- * join). Big enough for a thumb, quiet until touched.
+ * The ayah as a stack of phrase cards. Tapping a card fills in its English.
+ * Between two cards sits a grip: drag it to move words across the boundary.
  */
-.ayah-text {
+.verses-hint {
+  margin: 1rem 0 0;
+  padding: 0.7rem 0.9rem;
+  background: var(--paper-deep);
+  font-size: 0.92rem;
+  font-style: italic;
+  color: var(--ink-quiet);
+}
+
+.cards { display: grid; }
+
+.card {
+  display: grid;
+  gap: 0.6rem;
+  border: 1px solid var(--card-rule);
+  border-radius: 6px;
+  background: var(--paper);
+  padding: 0.35rem 1rem 0.6rem;
+  transition: border-color var(--fade), background-color var(--fade);
+}
+.card.open { border-color: var(--accent); background: color-mix(in oklab, var(--accent) 4%, var(--paper)); padding-bottom: 1rem; }
+
+.card-face {
   display: flex;
   flex-wrap: wrap;
-  align-items: stretch;
-  row-gap: 0.55rem;
-  font-family: var(--arabic);
-  font-size: clamp(1.45rem, 4.2vw, 2rem);
-  line-height: 2;
-  color: var(--ink);
-}
-.vw { padding: 0 0.04em; }
-.vw.end { color: var(--accent); padding-inline-start: 0.2em; }
-
-.joint {
-  position: relative;
-  width: 0.62em;
-  min-width: 14px;
-  padding: 0;
+  justify-content: flex-start;
+  gap: 0 0.32em;
+  width: 100%;
+  padding: 0.25rem 0 0;
   border: 0;
   background: none;
   cursor: pointer;
-  font-size: inherit;
+  color: var(--ink);
+  font-family: var(--arabic);
+  font-size: clamp(1.5rem, 5vw, 2rem);
+  line-height: 2;
+  text-align: right;
 }
-.joint::before {
+.vw.end { color: var(--accent); }
+
+.card-gloss { margin: 0; font-size: 1.08rem; line-height: 1.5; }
+.card-mine-fields { display: grid; gap: 0.7rem; }
+.card-mine-fields[open] { padding-bottom: 0.2rem; }
+.card-mine-fields summary {
+  cursor: pointer;
+  list-style: none;
+  font-size: 0.9rem;
+  color: var(--accent);
+}
+.card-mine-fields summary::-webkit-details-marker { display: none; }
+.card-mine-fields summary::before { content: '+ '; }
+.card-mine-fields[open] summary::before { content: '– '; }
+.card-mine { margin: 0 0 0.2rem; font-size: 0.95rem; font-style: italic; color: var(--ink-quiet); }
+.card-split {
+  justify-self: start;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--accent);
+  background: none;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  padding: 0.3rem 0.8rem;
+  cursor: pointer;
+}
+.card-split:hover { background: var(--accent-wash); }
+
+/* The grip between two cards: a big target, a small visible bar. */
+.handle {
+  position: relative;
+  height: 1.6rem;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: ns-resize;
+  touch-action: none;
+}
+.handle::before {
   content: '';
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 4px;
-  height: 4px;
-  margin: -2px 0 0 -2px;
-  border-radius: 50%;
-  background: var(--hairline);
+  width: 2.6rem;
+  height: 5px;
+  margin: -2.5px 0 0 -1.3rem;
+  border-radius: 3px;
+  background: var(--card-rule);
+  transition: background-color var(--fade), width var(--fade);
 }
-.joint:hover::before { background: var(--ink-quiet); }
-.joint.split { width: 1.1em; }
-.joint.split::before {
-  top: 18%;
-  bottom: 18%;
-  height: auto;
-  width: 2px;
-  margin: 0 0 0 -1px;
-  border-radius: 0;
-  background: var(--accent);
-}
-.joint.split:hover::before { background: var(--ink); }
+.handle:hover::before, .handle:focus-visible::before, .handle.active::before { background: var(--accent); }
+.handle:focus-visible { outline: none; }
+body.dragging, body.dragging * { cursor: ns-resize !important; user-select: none; }
 
 .ayah-translation {
   margin: 0;
@@ -405,31 +459,11 @@ body[data-panel='sheet'] #stage[data-view='mushaf'] { place-items: start center;
 .ayah-translation.tappable { cursor: pointer; }
 .ayah-cover { justify-self: start; }
 
-.ayah-phrases summary { cursor: pointer; list-style: none; }
-.ayah-phrases summary::before { content: '+ '; letter-spacing: 0; }
-.ayah-phrases[open] summary::before { content: '– '; }
-.ayah-phrases[open] { display: grid; gap: 1rem; }
-.phrase-row {
-  display: grid;
-  grid-template-columns: minmax(8rem, 13rem) 1fr 1fr;
-  gap: 0.8rem;
-  align-items: end;
-}
-.phrase-arabic { margin: 0; font-family: var(--arabic); font-size: 1.25rem; line-height: 1.8; text-align: right; }
-@container (max-width: 640px) {
-  .phrase-row { grid-template-columns: 1fr; gap: 0.35rem; }
-}
-@media (max-width: 640px) {
-  .phrase-row { grid-template-columns: 1fr; gap: 0.35rem; }
-}
-
 .verses-source { margin: 1.2rem 0 0; font-size: 0.85rem; font-style: italic; color: var(--ink-quiet); }
 
 /* Controls that only make sense in one view. */
 #cover { display: none; }
 body[data-view='verses'] #cover { display: inline; }
-#cover[aria-pressed='true'] { color: var(--ink); text-decoration: underline 1px; text-underline-offset: 0.3em; }
-#controls { z-index: 3; background: var(--paper); padding-inline-end: 0.5rem; }
 
 @media (prefers-reduced-motion: reduce) {
   #panel { transition: none; }
@@ -438,11 +472,10 @@ body[data-view='verses'] #cover { display: inline; }
 /* Phones: the two-page spread doesn't fit, so its switch goes. */
 @media (max-width: 640px) {
   #controls [data-layout], #controls .sep-layout { display: none; }
-  #controls { left: 0; right: 0; padding-inline: 12px; gap: 0.6rem; font-size: 0.74rem; justify-content: space-between; }
+  #controls { gap: 0.2rem 0.8rem; padding-inline: 12px; font-size: 0.86rem; justify-content: space-between; }
   #where { min-width: 2.5em; }
 }
 #controls button { white-space: nowrap; }
-.tie { display: inline-flex; align-items: stretch; white-space: nowrap; }
 
 /* While the phone sheet is open it owns the bottom edge; it has its own close. */
 body[data-panel='sheet'] #panel.open ~ #controls { display: none; }
