@@ -56,7 +56,7 @@ tabs.forEach((t) => { const [i, l] = TAB_ICONS[t.dataset.view as View]; iconButt
 iconButton(nextButton, 'chevronLeft', 'Next page');
 iconButton(prevButton, 'chevronRight', 'Previous page');
 iconButton(listenButton, 'headphones', 'Listen');
-mountPlayerBar(document.querySelector<HTMLElement>('#player')!);
+mountPlayerBar(document.querySelector<HTMLElement>('#player')!, () => pageInView());
 
 function applyMood(): void {
   if (prefs.mood === 'auto') delete document.documentElement.dataset.mood;
@@ -284,13 +284,13 @@ nextButton.addEventListener('click', () => turn(1));
 listenButton.addEventListener('click', () => {
   const first = ayahRange(pageInView())?.[0] ?? '1:1';
   const [surah, ayah] = first.split(':').map(Number);
-  openPlayerSheet(surah, ayah);
+  openPlayerSheet(pageInView(), surah, ayah);
 });
 
 // The ayah being recited is marked, in the mushaf and in verse by verse, and kept in view.
 let marked = '';
 onPlayer((n) => {
-  const key = n && !n.basmalah ? `${n.plan.surah}:${n.ayah}` : '';
+  const key = n && !n.basmalah ? `${n.surah}:${n.ayah}` : '';
   if (key === marked) return;
   stage.querySelectorAll('.reciting').forEach((el) => el.classList.remove('reciting'));
   marked = key;

@@ -228,9 +228,9 @@ export async function deleteDownload(reciterId: string, surah: number): Promise<
 
 export interface PlayPlan {
   reciter: string;
-  surah: number;
-  from: number;
-  to: number;
+  /** First and last ayah, as [surah, ayah]; the range may run across surahs. */
+  from: [number, number];
+  to: [number, number];
   /** Times each ayah is recited in a row; 0 = keep repeating. */
   eachAyah: number;
   /** Times the whole range is played; 0 = keep repeating. */
@@ -240,7 +240,7 @@ export interface PlayPlan {
   pause: number;
 }
 
-export interface NowPlaying { plan: PlayPlan; ayah: number; ayahRound: number; rangeRound: number; basmalah: boolean; playing: boolean }
+export interface NowPlaying { plan: PlayPlan; surah: number; ayah: number; ayahRound: number; rangeRound: number; basmalah: boolean; playing: boolean }
 
 type Listener = (now: NowPlaying | null, error?: string) => void;
 const listeners = new Set<Listener>();
@@ -260,10 +260,24 @@ let between = false;
 const tell = (error?: string) => listeners.forEach((fn) => fn(now, error));
 export const nowPlaying = () => now;
 
+const order = (s: number, a: number) => s * 1000 + a;
+/** Surahs other than Al-Fatihah and At-Tawbah open with the basmalah. */
+const opensWithBasmalah = (s: number, a: number) => a === 1 && s !== 1 && s !== 9;
+/** The ayah after [s, a], or null after the last ayah of the Quran. */
+function nextAyah(s: number, a: number): [number, number] | null {
+  if (a < (getChapter(s)?.verses_count ?? 0)) return [s, a + 1];
+  return s < 114 ? [s + 1, 1] : null;
+}
+function prevAyah(s: number, a: number): [number, number] | null {
+  if (a > 1) return [s, a - 1];
+  return s > 1 ? [s - 1, getChapter(s - 1)?.verses_count ?? 1] : null;
+}
+const isLast = (n: NowPlaying) => order(n.surah, n.ayah) >= order(...n.plan.to);
+
 export function play(plan: PlayPlan): void {
   stop();
-  const withBasmalah = plan.from === 1 && plan.surah !== 1 && plan.surah !== 9;
-  now = { plan, ayah: plan.from, ayahRound: 1, rangeRound: 1, basmalah: withBasmalah, playing: true };
+  const [s, a] = plan.from;
+  now = { plan, surah: s, ayah: a, ayahRound: 1, rangeRound: 1, basmalah: opensWithBasmalah(s, a), playing: true };
   start();
 }
 
@@ -295,11 +309,11 @@ export function stop(): void {
 /** Jump to the next (1) or previous (-1) ayah in the range. */
 export function skip(direction: 1 | -1): void {
   if (!now) return;
-  const next = now.ayah + direction;
-  if (next < now.plan.from || next > now.plan.to) return;
-  now.ayah = next;
+  const next = direction === 1 ? nextAyah(now.surah, now.ayah) : prevAyah(now.surah, now.ayah);
+  if (!next || order(...next) < order(...now.plan.from) || order(...next) > order(...now.plan.to)) return;
+  [now.surah, now.ayah] = next;
   now.ayahRound = 1;
-  now.basmalah = false;
+  now.basmalah = direction === 1 && opensWithBasmalah(...next);
   now.playing = true;
   start();
 }
@@ -309,13 +323,13 @@ async function start(): Promise<void> {
   const mine = ++token;
   clearTimeout(pauseTimer);
   const r = reciterById(now.plan.reciter);
-  const [s, a] = now.basmalah ? [1, 1] : [now.plan.surah, now.ayah];
+  const [s, a] = now.basmalah ? [1, 1] : [now.surah, now.ayah];
   tell();
   mediaSession(r);
 
   if (fileAyah(r, s, a) === null) {
     // No recording of this ayah by this reciter: say so, then carry on.
-    const only = now.plan.from === now.plan.to;
+    const only = order(...now.plan.from) === order(...now.plan.to);
     tell(`${r.name}’s recording of ${s}:${a} is missing from the source${only ? '.' : ', so it’s skipped.'}`);
     if (only) { now.playing = false; return; }
     pauseTimer = window.setTimeout(() => {
@@ -359,7 +373,7 @@ function cannotPlay(): void {
 /** Play one ayah out of a whole-surah recording: seek to its start, stop at its end. */
 async function startSegment(r: Reciter, surah: number, ayah: number, mine: number): Promise<void> {
   if (!now) return;
-  const seg = await segment(r, now.plan.surah, now.ayah, now.basmalah).catch(() => null);
+  const seg = await segment(r, now.surah, now.ayah, now.basmalah).catch(() => null);
   if (mine !== token || !now) return;
   if (!seg) { cannotPlay(); return; }
   void surah; void ayah;
@@ -417,7 +431,9 @@ function finished(inFile: boolean): void {
   if (!now) return;
   const mine = token;
   const p = now.plan;
-  const straightOn = inFile && !now.basmalah && p.pause === 0 && p.eachAyah === 1 && now.ayah < p.to;
+  // (Only within a surah: the next surah is a different file.)
+  const straightOn = inFile && !now.basmalah && p.pause === 0 && p.eachAyah === 1 && !isLast(now)
+    && now.ayah < (getChapter(now.surah)?.verses_count ?? 0);
   if (inFile && !straightOn) audio.pause();
   between = true;
   const after = () => { if (mine === token && now) advance(); };
@@ -425,18 +441,24 @@ function finished(inFile: boolean): void {
   if (wait > 0) pauseTimer = window.setTimeout(after, wait * 1000); else after();
 }
 
-/** Move on after a recitation; `nextAyah` skips this ayah's remaining repeats. */
-function advance(nextAyah = false): void {
+/** Move on after a recitation; `skipRepeats` skips this ayah's remaining repeats. */
+function advance(skipRepeats = false): void {
   if (!now) return;
   const p = now.plan;
   if (now.basmalah) { now.basmalah = false; start(); return; }
-  if (!nextAyah && (p.eachAyah === 0 || now.ayahRound < p.eachAyah)) { now.ayahRound++; start(); return; }
+  if (!skipRepeats && (p.eachAyah === 0 || now.ayahRound < p.eachAyah)) { now.ayahRound++; start(); return; }
   now.ayahRound = 1;
-  if (now.ayah < p.to) { now.ayah++; start(); return; }
+  const next = nextAyah(now.surah, now.ayah);
+  if (!isLast(now) && next) {
+    [now.surah, now.ayah] = next;
+    now.basmalah = opensWithBasmalah(...next);
+    start();
+    return;
+  }
   if (p.wholeRange === 0 || now.rangeRound < p.wholeRange) {
     now.rangeRound++;
-    now.ayah = p.from;
-    now.basmalah = p.from === 1 && p.surah !== 1 && p.surah !== 9;
+    [now.surah, now.ayah] = p.from;
+    now.basmalah = opensWithBasmalah(...p.from);
     start();
     return;
   }
@@ -452,7 +474,7 @@ function mediaSession(r: Reciter): void {
   const ms = navigator.mediaSession;
   if (!ms || !now) return;
   try {
-    ms.metadata = new MediaMetadata({ title: `${getChapter(now.plan.surah)?.name_complex ?? ''} ${now.basmalah ? '' : now.ayah}`.trim(), artist: r.name, album: 'Hifz Mushaf' });
+    ms.metadata = new MediaMetadata({ title: `${getChapter(now.surah)?.name_complex ?? ''} ${now.basmalah ? '' : now.ayah}`.trim(), artist: r.name, album: 'Hifz Mushaf' });
     ms.setActionHandler('play', () => { if (now && !now.playing) toggle(); });
     ms.setActionHandler('pause', () => { if (now?.playing) toggle(); });
     ms.setActionHandler('nexttrack', () => skip(1));
