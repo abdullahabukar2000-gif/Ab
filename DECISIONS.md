@@ -98,3 +98,14 @@
   to split its box after it. Arrow keys move a focused grip one word.
 - Per-phrase meaning/note fields are no longer in verse by verse (they stay in the
   mushaf page's phrase panel).
+
+# Mushaf page simplified (user: "get rid of the extra stuff")
+
+- The mushaf view is now just the pages: every added page one after another, each
+  filling the screen, scrolled vertically. No phrase panel, highlights, page-turn
+  buttons or one/two-page switch.
+- Verse by verse lists every added ayah in one scroll. Switching views keeps the page
+  you were on.
+- The per-phrase meaning/note fields are gone from the interface (stored notes are
+  kept, unused). Controls: "verse by verse" / "mushaf page", and "hide translations"
+  in verse view.

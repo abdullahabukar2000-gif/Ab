@@ -6,7 +6,7 @@
 import { ayahGlyphs, getPage, phraseGloss, surahOfPage, TRANSLATION_NAME, translationOf } from './data';
 import { ensureFont, isConfirmed, pageFamily } from './fonts';
 import { moveBreak, phrasesOf, resetToSuggested, toggleBreak, usesSuggestion, type Phrase } from './notes';
-import { ayahLabel, h } from './panel';
+import { ayahLabel, h } from './dom';
 
 export interface VerseOptions { coverTranslations: boolean }
 
@@ -39,7 +39,9 @@ export function renderVerses(pageNumbers: number[], options: VerseOptions): HTML
     const data = getPage(n);
     if (!data) continue;
     const chapter = surahOfPage(data);
-    root.append(h('p', { class: 'verses-page' }, `${chapter?.name_complex ?? ''} · page ${n}`));
+    const heading = h('p', { class: 'verses-page' }, `${chapter?.name_complex ?? ''} · page ${n}`);
+    heading.dataset.page = String(n);
+    root.append(heading);
     for (const key of data.verses) {
       if (seen.has(key)) continue;
       seen.add(key);

@@ -30,13 +30,23 @@ body {
   --pages-across: 1;
   --page-w: calc(var(--block-width) + 2 * var(--margin-inline));
   --page-h: calc(var(--lines) * var(--line-height) + 2 * var(--margin-block));
-  font-size: min(100cqw / (var(--pages-across) * var(--page-w)), 100cqh / var(--page-h));
+  font-size: min(100cqw / (var(--pages-across) * var(--page-w)), (100cqh - 16px) / var(--page-h));
   display: flex;
 }
 
-#stage[data-layout='spread'] .spread { --pages-across: 2; }
-/* The gutter: the inner edge of the right-hand page. */
-#stage[data-layout='spread'] .page[data-side='right'] { border-left: 1px solid var(--hairline); }
+/* Mushaf view: every page fills the screen; scroll down through them. */
+#stage[data-view='mushaf'] {
+  display: block;
+  overflow-y: auto;
+  scroll-snap-type: y proximity;
+  padding-top: 0;
+}
+.slot {
+  height: 100cqh;
+  display: grid;
+  place-items: center;
+  scroll-snap-align: start;
+}
 
 /* Narrow screens: give the margin back to the text. */
 @container (max-width: 560px) {
@@ -176,86 +186,22 @@ body {
 }
 #controls button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-#where { font-variant-numeric: tabular-nums; min-width: 3.5em; text-align: center; color: var(--ink); }
-.sep { width: 1px; height: 0.8em; background: var(--hairline); align-self: center; }
 
 @media (prefers-reduced-motion: reduce) {
   #controls { transition: none; }
 }
 
-/* ------------------------------------------------------------------ phrase mark */
+/* ------------------------------------------------------------------ small type */
 
-/*
- * Only the tapped phrase is marked, in a layer behind the text: a wash of at
- * most 8% and a 2px baseline rule in the accent. The Arabic reads the same
- * marked or unmarked.
- */
-.marks { position: absolute; inset: 0; pointer-events: none; }
-.block { position: relative; }
-.page[data-glyphs='ready'] .w { cursor: pointer; }
-
-.mark {
-  position: absolute;
-  background: color-mix(in oklab, var(--accent) var(--mark-wash), transparent);
-  border-bottom: 2px solid var(--accent);
-}
-
-/* ------------------------------------------------------------------ phrase panel */
-
-#panel {
-  position: fixed;
-  z-index: 2;
-  display: grid;
-  gap: 1.1rem;
-  align-content: start;
-  background: var(--paper);
-  color: var(--ink);
-  font-family: var(--serif);
-  font-size: 1rem;
-  line-height: 1.45;
-  overflow-y: auto;
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity var(--fade), visibility 0s linear 120ms;
-}
-#panel.open { opacity: 1; visibility: visible; transition: opacity var(--fade); }
-body[data-view='verses'] #panel { display: none; }
-
-body[data-panel='margin'] #panel {
-  top: 50%;
-  right: 24px;
-  width: min(22rem, calc(var(--margin-free) - 56px));
-  max-height: 86vh;
-  translate: 0 -50%;
-  padding-block: 0.5rem;
-}
-
-body[data-panel='sheet'] #panel {
-  left: 0;
-  right: 0;
-  bottom: 0;
-  max-height: var(--sheet-max, 40vh);
-  gap: 0.8rem;
-  padding: 0.75rem 16px max(1rem, env(safe-area-inset-bottom));
-  border-top: 1px solid var(--hairline);
-}
-body[data-panel='sheet'] .panel-arabic { font-size: 1.35rem; line-height: 1.7; }
-/* On narrow screens the page sits at the top, leaving the bottom for the sheet. */
-body[data-panel='sheet'] #stage[data-view='mushaf'] { place-items: start center; }
-
-.panel-head { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
-
-.panel-where, .panel-label, .panel-source, .ayah-head, .verses-page {
+.ayah-head, .verses-page {
   margin: 0;
   font-size: 0.78rem;
   font-variant-caps: all-small-caps;
   letter-spacing: 0.1em;
   color: var(--ink-quiet);
 }
-.panel-where { font-size: 0.85rem; }
-.panel-source { letter-spacing: 0.06em; }
 
-.panel-close, .panel-link, .panel-action, .ayah-reset {
+.ayah-reset {
   font: inherit;
   font-size: 0.78rem;
   font-variant-caps: all-small-caps;
@@ -265,58 +211,9 @@ body[data-panel='sheet'] #stage[data-view='mushaf'] { place-items: start center;
   border: 0;
   padding: 0.2rem 0;
   cursor: pointer;
-  text-align: left;
 }
-.panel-action { font-size: 0.85rem; color: var(--accent); justify-self: start; }
-.panel-close:hover, .panel-link:hover, .ayah-reset:hover { color: var(--ink); }
-.panel-action:hover { text-decoration: underline 1px; text-underline-offset: 0.3em; }
-
-.panel-arabic {
-  margin: 0;
-  font-family: var(--arabic);
-  font-size: 1.75rem;
-  line-height: 1.9;
-  text-align: right;
-}
-.panel-arabic::after {
-  content: '';
-  display: block;
-  height: 2px;
-  margin-top: -0.2em;
-  background: var(--accent);
-}
-
-.panel-field { display: grid; gap: 0.3rem; }
-.panel-revealed { display: grid; gap: 1.1rem; }
-.panel-translation { margin: 0; font-size: 1rem; line-height: 1.55; }
-.panel-gloss { margin: 0; font-size: 1.1rem; line-height: 1.5; }
-
-.panel-cover, .ayah-cover {
-  font: inherit;
-  font-style: italic;
-  font-size: 0.92rem;
-  text-align: left;
-  color: var(--ink-quiet);
-  background: var(--paper-deep);
-  border: 0;
-  padding: 0.75rem 0.85rem;
-  cursor: pointer;
-}
-.panel-cover:hover, .ayah-cover:hover { color: var(--ink); }
-
-#panel textarea, .verses textarea {
-  font: inherit;
-  color: var(--ink);
-  background: var(--paper-deep);
-  border: 0;
-  border-bottom: 1px solid var(--hairline);
-  padding: 0.5rem 0.7rem;
-  resize: none;
-  overflow: hidden;
-}
-#panel textarea::placeholder, .verses textarea::placeholder { color: var(--ink-quiet); font-style: italic; }
-#panel textarea:focus, .verses textarea:focus { outline: none; border-bottom-color: var(--accent); }
-#panel button:focus-visible, .verses button:focus-visible, .verses summary:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
+.ayah-reset:hover { color: var(--ink); }
+.verses button:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
 
 /* ------------------------------------------------------------------ verse by verse */
 
@@ -478,17 +375,11 @@ body.dragging, body.dragging * { cursor: ew-resize !important; user-select: none
 #cover { display: none; }
 body[data-view='verses'] #cover { display: inline; }
 
-@media (prefers-reduced-motion: reduce) {
-  #panel { transition: none; }
-}
-
-/* Phones: the two-page spread doesn't fit, so its switch goes. */
+/* Phones: a tighter control bar. */
 @media (max-width: 640px) {
-  #controls [data-layout], #controls .sep-layout { display: none; }
   #controls { gap: 0.2rem 0.8rem; padding-inline: 12px; font-size: 0.86rem; justify-content: space-between; }
-  #where { min-width: 2.5em; }
 }
 #controls button { white-space: nowrap; }
 
 /* While the phone sheet is open it owns the bottom edge; it has its own close. */
-body[data-panel='sheet'] #panel.open ~ #controls { display: none; }
+
