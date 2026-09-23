@@ -185,3 +185,16 @@
 - Home lists every surah with its ayah count and the page it starts on.
 - Meaning groups matched to the translation still exist only for pages 255–262. Every
   other ayah uses the pause-sign guess, and its translation shows whole.
+
+# Meaning blocks for every surah
+
+- `scripts/align-auto.py` matches each Arabic word to its part of The Clear Quran using
+  quran.com's word-by-word English (npm `@kmaslesa/holy-quran-word-by-word-full-data`,
+  matched by word position). The translation is only ever sliced, never reworded.
+- Safety rule: if any word in a block clearly belongs to another block, the two join.
+  A doubtful match makes a bigger block, never a block with the wrong English.
+- Result: 4,603 of 6,236 ayahs have blocks (3.8 per ayah). About 1,630 still reveal
+  whole, mostly very short ayahs. 13:43–15:15 keep the hand-checked groups
+  (`align-source.py` → `data/align/hand.json`).
+- Plan for hand-checking: one surah at a time, correcting only the blocks that are off,
+  starting with the surahs being memorised.

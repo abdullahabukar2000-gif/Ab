@@ -17,9 +17,10 @@
 # block, never a block paired with the wrong words. The hand-checked groups in
 # align-source.py (Surah Ibrahim and around it) are kept as they are.
 #
-#   python3 scripts/align-auto.py <path to data.json of the npm package>
+#   python3 scripts/align-auto.py <path to data.json of the npm package> --write
 #
-# Writes data/align/clear-quran.json (hand-checked + automatic) and prints how
+# Reads data/align/hand.json (from align-source.py) and, with --write, writes
+# data/align/clear-quran.json (hand-checked + automatic) and prints how
 # closely the automatic groups agree with the hand-checked ones.
 
 import json, glob, os, re, sys
@@ -54,6 +55,8 @@ indeed surely verily certainly truly only very all ever'''.split())
 CLAUSE_WORDS = set('''and but so then who whom which whoever whatever when whenever if until while
 except unless or yet before after because since though although where lest'''.split())
 
+PREPOSITIONS = set('''in from with to on for by into upon over against among through without about'''.split())
+
 
 def norm(word):
     word = word.lower().strip("˹˺()[]“”‘’\"'.,;:!?—-")
@@ -83,7 +86,7 @@ def same(a, b):
 def cut(text):
     """Split points: after punctuation followed by a space, and before clause words."""
     points = set()
-    for m in re.finditer(r'[,;:.!?—](?=\s|$)|—', text):
+    for m in re.finditer(r'[,;:.!?—][”’]*(?=\s|$)|—', text):
         end = m.end()
         while end < len(text) and text[end] == ' ':
             end += 1
@@ -91,7 +94,12 @@ def cut(text):
             points.add(end)
     for m in re.finditer(r'(?<= )(\S+)', text):
         if norm(m.group(1)) in CLAUSE_WORDS and m.group(1)[0].islower():
-            points.add(m.start())
+            # "in which", "from whom": cut before the preposition, not after it.
+            before = re.search(r'(\S+) $', text[:m.start()])
+            if before and norm(before.group(1)) in PREPOSITIONS:
+                points.add(before.start())
+            else:
+                points.add(m.start())
     # Also before an opening quote.
     for m in re.finditer(r'(?<= )[“‘]', text):
         points.add(m.start())
@@ -101,6 +109,18 @@ def cut(text):
         if p > start:
             bounds.append([start, p])
             start = p
+    # Long pieces are cut again before a preposition, so blocks stay short.
+    finer = []
+    for start, end in bounds:
+        if len(text[start:end].split()) > 6:
+            for m in re.finditer(r'(?<= )(\S+)', text[start:end]):
+                at = start + m.start()
+                if norm(m.group(1)) in PREPOSITIONS and m.group(1)[0].islower() \
+                        and len(text[start:at].split()) >= 3 and len(text[at:end].split()) >= 3:
+                    finer.append([start, at])
+                    start = at
+        finer.append([start, end])
+    bounds = finer
     # A piece of one word joins the next piece (or the one before, at the end).
     merged = []
     for b in bounds:
@@ -144,7 +164,19 @@ def align(key):
         home[i] = best
     if all(h is None for h in home):
         return None
-    for i in range(n - 1, -1, -1):          # unmatched: go with the next word
+    # Unmatched words: a word with meaning of its own ("remaining") goes with
+    # the word before; small words ("indeed", "those who") and words opening
+    # with "and", "then", ... go with the word after.
+    opens = lambda i: re.match(r'(and|then|so|but|or)\b', gl[i].lower().lstrip('([ '))
+    for i in range(1, n):
+        if home[i] is None and content([w for w, _ in words_of(gl[i])]) and not opens(i):
+            j = i - 1                        # small words just before it come along too
+            while j >= 0 and home[j] is None and not content([w for w, _ in words_of(gl[j])]) and not opens(j):
+                j -= 1
+            if j >= 0 and home[j] is not None:
+                for k in range(j + 1, i + 1):
+                    home[k] = home[j]
+    for i in range(n - 1, -1, -1):
         if home[i] is None and i + 1 < n:
             home[i] = home[i + 1]
     for i in range(n):                       # trailing unmatched: the word before
@@ -158,10 +190,16 @@ def align(key):
             parent[x] = parent[parent[x]]
             x = parent[x]
         return x
-    first = min(home)
-    for p in range(len(pieces)):             # pieces without Arabic words join the one before
-        if p not in home:
-            parent[p] = p - 1 if p > first else first
+    # A piece without Arabic words joins the piece before it, unless it starts
+    # a new sentence: then it belongs with what follows.
+    has = sorted(set(home))
+    for p in range(len(pieces)):
+        if p in has:
+            continue
+        before = [q for q in has if q < p]
+        after = [q for q in has if q > p]
+        starts = re.match(r'[“‘˹]*[A-Z]', text[pieces[p][0]:])
+        parent[p] = after[0] if (starts and after) or not before else before[-1]
     changed = True
     while changed:
         changed = False
@@ -173,7 +211,18 @@ def align(key):
         roots = sorted(span, key=lambda r: span[r])
         for a, b in zip(roots, roots[1:]):
             if span[b][0] <= span[a][1]:
-                parent[find(b)] = find(a)
+                # One stray word is more likely a wrong match than a reason to
+                # join two whole pieces: it goes with the group around it.
+                in_a = [i for i in range(span[a][0], span[a][1] + 1) if find(home[i]) == b]
+                in_b = [i for i in range(span[b][0], span[b][1] + 1) if find(home[i]) == a]
+                size_a = sum(1 for h in home if find(h) == a)
+                size_b = sum(1 for h in home if find(h) == b)
+                if in_a and len(in_a) <= max(1, size_b // 4) and size_b > len(in_a):
+                    for i in in_a: home[i] = a
+                elif in_b and len(in_b) <= max(1, size_a // 4) and size_a > len(in_b):
+                    for i in in_b: home[i] = b
+                else:
+                    parent[find(b)] = find(a)
                 changed = True
                 break
     span = {}
@@ -185,12 +234,57 @@ def align(key):
     if len(roots) < 2:
         return None
     group_of = {r: g for g, r in enumerate(roots)}
-    ends = [span[r][1] for r in roots]
+
+    # 4. Check every group: its Arabic glosses and its English must clearly
+    #    match. A group that doesn't joins the group next to it in the Arabic.
+    gloss_words = [content([w for w, _ in words_of(g)]) for g in gl]
+    groups = [[span[r][0], span[r][1], [p for p in range(len(pieces)) if find(p) == r]] for r in roots]
+    def hits(words, pool):
+        return sum(1 for x in words if any(same(x, y) for y in pool))
+    def misplaced(g):
+        """Another group that holds words this group's words clearly belong with, or None."""
+        lo, hi, ps = groups[g]
+        en = [w for p in ps for w in piece_words[p]]
+        for h, (lo2, hi2, ps2) in enumerate(groups):
+            if h == g:
+                continue
+            en2 = [w for p in ps2 for w in piece_words[p]]
+            # An Arabic word here whose English is only over there...
+            for i in range(lo, hi + 1):
+                gw = gloss_words[i]
+                if gw and not hits(gw, en) and hits(gw, en2) * 2 >= len(gw):
+                    return h
+            # ...or an English word here that only translates Arabic over there.
+            ar = [w for i in range(lo, hi + 1) for w in gloss_words[i]]
+            ar2 = [w for i in range(lo2, hi2 + 1) for w in gloss_words[i]]
+            for y in en:
+                if not hits([y], ar) and hits([y], ar2):
+                    return h
+        return None
+    g = 0
+    while g < len(groups) and len(groups) > 1:
+        h = misplaced(g)
+        if h is None:
+            g += 1
+            continue
+        # Join the two, with every group between them (groups stay unbroken runs).
+        a_, b_ = sorted((g, h))
+        joined = [groups[a_][0], groups[b_][1], [p for x in groups[a_:b_ + 1] for p in x[2]]]
+        groups[a_:b_ + 1] = [joined]
+        g = 0
+    if len(groups) < 2:
+        return None
+    group_of = {}
+    for gi, (_, _, ps) in enumerate(groups):
+        for p in ps:
+            group_of[find(p)] = gi
+            group_of[p] = gi
+    ends = [hi for _, hi, _ in groups]
 
     # Pieces in English order; neighbours in the same group become one piece.
     out = []
     for p, (a, b) in enumerate(pieces):
-        g = group_of[find(p)]
+        g = group_of[p]
         end = b
         while end > a and text[end - 1] == ' ':
             end -= 1
@@ -216,7 +310,7 @@ def check(key, a):
 
 
 out_path = os.path.join(ROOT, 'data/align/clear-quran.json')
-existing = json.load(open(out_path))
+existing = json.load(open(os.path.join(ROOT, 'data/align/hand.json')))
 hand = existing['verses']
 
 auto = {}
