@@ -6,7 +6,7 @@ import { h } from './dom';
 import { icon } from './icons';
 
 export interface HomeActions {
-  openPage(page: number, view: 'mushaf' | 'verses'): void;
+  openPage(page: number, view: 'mushaf' | 'verses', ayah?: string): void;
 }
 
 let query = '';
@@ -81,7 +81,7 @@ function surahRow(id: number, actions: HomeActions): HTMLElement {
     h('span', { class: 'surah-arabic', lang: 'ar', dir: 'rtl' }, c.name_arabic),
     chevron,
   );
-  row.addEventListener('click', () => actions.openPage(start, 'mushaf'));
+  row.addEventListener('click', () => actions.openPage(start, 'mushaf', `${id}:1`));
   row.setAttribute('aria-label', `${id}. ${c.name_complex}, ${status}`);
   return h('li', {}, row);
 }

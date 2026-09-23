@@ -58,10 +58,13 @@ const chapters = new Map<number, Chapter>((chaptersFile.chapters as Chapter[]).m
 export function getChapter(id: number): Chapter | undefined { return chapters.get(id); }
 export const allChapters = (): Chapter[] => [...chapters.values()];
 
-/** The page a surah opens on (its heading), from the index. */
+/**
+ * The page a surah starts on: the page with its first ayah. (A few surah
+ * titles sit at the foot of the page before, under the end of the previous
+ * surah; opening there would show the wrong surah.)
+ */
 export function surahStartPage(id: number): number {
-  const opens = availablePages.find((n) => summaries[n]?.o.includes(id));
-  return opens ?? availablePages.find((n) => summaries[n]?.s.includes(id)) ?? 1;
+  return pagesOfAyah(`${id}:1`)[0] ?? availablePages.find((n) => summaries[n]?.s.includes(id)) ?? 1;
 }
 
 /** The surah a page's running head names: whichever surah its first word belongs to. */

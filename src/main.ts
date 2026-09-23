@@ -5,7 +5,7 @@ import '@fontsource/scheherazade-new/arabic-400.css';
 import '@fontsource/noto-naskh-arabic/arabic-400.css';
 import './styles/tokens.css';
 import './styles/app.css';
-import { ayahRange, availablePages, getChapter, getPage, loadIndex, loadPages, surahsOnPage, TOTAL_PAGES } from './data';
+import { ayahRange, availablePages, getChapter, getPage, loadIndex, loadPages, pagesOfAyah, surahsOnPage, TOTAL_PAGES } from './data';
 import { loadFontUrls } from './fonts';
 import { iconButton, type IconName } from './icons';
 import { renderPage, upgradeToGlyphs } from './render';
@@ -201,22 +201,62 @@ function pageInView(): number {
 }
 
 function scrollToPage(page: number, smooth = false): void {
-  const behavior = smooth ? 'smooth' : 'instant';
-  const box = stage.getBoundingClientRect();
   if (view === 'mushaf') {
-    const slot = [...stage.querySelectorAll<HTMLElement>('.slot')].find((s) => s.dataset.pages!.split(',').map(Number).includes(page));
-    if (slot && !smooth) fillSlot(slot);
-    if (slot) {
-      // Snap points stop a scroll at every page on the way; a jump should go straight there.
-      if (!smooth) stage.style.scrollSnapType = 'none';
-      stage.scrollBy({ left: slot.getBoundingClientRect().left - box.left, behavior });
-      if (!smooth) requestAnimationFrame(() => { stage.style.scrollSnapType = ''; });
-    }
+    const slots = [...stage.querySelectorAll<HTMLElement>('.slot')];
+    const index = slots.findIndex((s) => s.dataset.pages!.split(',').map(Number).includes(page));
+    if (index < 0) return;
+    fillSlot(slots[index]);
+    if (smooth) stage.scrollTo({ left: slotOffset(index), behavior: 'smooth' });
+    else jumpToSlot(index);
   } else if (view === 'verses') {
     const heading = stage.querySelector<HTMLElement>(`.verses-page[data-page="${page}"]`);
-    if (heading) stage.scrollBy({ top: heading.getBoundingClientRect().top - box.top, behavior });
+    if (heading) stage.scrollTop += heading.getBoundingClientRect().top - stage.getBoundingClientRect().top;
   }
   remember();
+}
+
+/**
+ * Where slot `index` sits. The pages run right to left, and browsers count a
+ * right-to-left scroll from 0 downwards (older ones upwards from the far end).
+ */
+function slotOffset(index: number): number {
+  const x = index * stage.clientWidth;
+  const probe = stage.scrollLeft;
+  if (probe < 0) return -x;
+  if (probe > 0) return stage.scrollWidth - stage.clientWidth - x;
+  stage.scrollLeft = -1;
+  const negative = stage.scrollLeft < 0;
+  stage.scrollLeft = probe;
+  return negative ? -x : x;
+}
+
+/**
+ * Go straight to a slot. Snapping is switched off while jumping (it would stop
+ * at every page on the way, and Safari can snap to the wrong page after a long
+ * jump), then the position is checked for a few frames and put right if the
+ * browser moved it, before snapping comes back on.
+ */
+let jumpRun = 0;
+function jumpToSlot(index: number): void {
+  const run = ++jumpRun;
+  stage.style.scrollSnapType = 'none';
+  const target = slotOffset(index);
+  stage.scrollLeft = target;
+  let frames = 0;
+  const check = () => {
+    if (run !== jumpRun) return;
+    if (Math.abs(stage.scrollLeft - target) > 2) stage.scrollLeft = target;
+    if (++frames < 12) { requestAnimationFrame(check); return; }
+    stage.style.scrollSnapType = '';
+    // One last look once snapping is back on.
+    window.setTimeout(() => {
+      if (run !== jumpRun || Math.abs(stage.scrollLeft - target) <= 2) { remember(); return; }
+      stage.style.scrollSnapType = 'none';
+      stage.scrollLeft = target;
+      window.setTimeout(() => { if (run === jumpRun) { stage.style.scrollSnapType = ''; remember(); } }, 250);
+    }, 200);
+  };
+  requestAnimationFrame(check);
 }
 
 /** Keep the page in view for "Continue reading", and the title in step with it. */
@@ -229,13 +269,23 @@ function remember(): void {
 let scrollTimer: number | undefined;
 stage.addEventListener('scroll', () => { clearTimeout(scrollTimer); scrollTimer = window.setTimeout(remember, 150); }, { passive: true });
 
+/** The ayah you chose to open (a surah's first ayah), kept while its page is in view. */
+let focusKey: string | null = null;
+
 function go(next: View, page?: number): void {
   const keep = page ?? (view === 'mushaf' || view === 'verses' ? pageInView() : lastPage ?? 1);
+  if (focusKey && !pagesOfAyah(focusKey).includes(keep)) focusKey = null;
   view = next;
   store.set('view', view);
   show(keep);
   if (next === 'mushaf') scrollToPage(keep);
-  if (next === 'verses') verseJob?.then(() => { if (view === 'verses') scrollToPage(keep); });
+  if (next === 'verses') verseJob?.then(() => {
+    if (view !== 'verses') return;
+    // Straight to the chosen ayah when it's on this page (a surah that starts mid-page).
+    const ayah = focusKey ? document.getElementById(`ayah-${focusKey.replace(':', '-')}`) : null;
+    if (ayah) { stage.scrollTop += ayah.getBoundingClientRect().top - stage.getBoundingClientRect().top - 8; remember(); }
+    else scrollToPage(keep);
+  });
 }
 
 /** Redraw in place: the same page stays in view. */
@@ -246,7 +296,10 @@ function refresh(): void {
   stage.scrollTop = scroll;
 }
 
-function openPage(page: number, target: 'mushaf' | 'verses'): void { go(target, page); }
+function openPage(page: number, target: 'mushaf' | 'verses', ayah?: string): void {
+  focusKey = ayah ?? null;
+  go(target, page);
+}
 
 function changePrefs(p: Partial<Prefs>): void {
   Object.assign(prefs, p);
