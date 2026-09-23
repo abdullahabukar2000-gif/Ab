@@ -49,7 +49,7 @@ export function renderPage(data: PageData): HTMLElement {
 
   const chapter = surahOfPage(data);
   const head = el('header', 'furniture running-head');
-  if (chapter) head.append(el('span', 'surah', chapter.name_complex));
+  if (chapter) head.append(el('span', 'running-surah', chapter.name_complex));
   const foot = el('footer', 'furniture folio', String(data.page));
 
   const block = el('div', 'block');

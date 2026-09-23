@@ -1,5 +1,6 @@
 import type { Chapter, PageData } from './types';
 import chaptersFile from '../data/chapters.json';
+import alignFile from '../data/align/clear-quran.json';
 
 // Every ingested page is bundled, so the app works with no network at all.
 const files = import.meta.glob<PageData>('../data/pages/*.json', { eager: true, import: 'default' });
@@ -54,7 +55,6 @@ export function ayahGlyphs(key: string): { page: number; word: import('./types')
   return out.sort((a, b) => a.word.pos - b.word.pos);
 }
 
-import alignFile from '../data/align/clear-quran.json';
 
 interface Alignment { ends: number[]; pieces: [number, number, number][] }
 const alignments = (alignFile as unknown as { verses: Record<string, Alignment> }).verses;
@@ -80,4 +80,27 @@ export function translationPieces(key: string): { before: string; text: string; 
     at = end;
     return piece;
   });
+}
+
+export const allChapters = (): Chapter[] => [...chapters.values()];
+
+/** Pages that hold any ayah of a surah, and how many of its ayahs have been added. */
+const coverage = new Map<number, { pages: number[]; ayahs: Set<string> }>();
+for (const n of availablePages) {
+  for (const key of pages.get(n)!.verses) {
+    const s = Number(key.split(':')[0]);
+    const c = coverage.get(s) ?? { pages: [], ayahs: new Set<string>() };
+    if (!c.pages.includes(n)) c.pages.push(n);
+    c.ayahs.add(key);
+    coverage.set(s, c);
+  }
+}
+export function surahCoverage(id: number): { pages: number[]; added: number } {
+  const c = coverage.get(id);
+  return { pages: c?.pages ?? [], added: c?.ayahs.size ?? 0 };
+}
+
+/** The first page an ayah appears on. */
+export function pageOfAyah(key: string): number | undefined {
+  return availablePages.find((n) => pages.get(n)!.verses.includes(key));
 }

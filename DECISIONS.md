@@ -141,3 +141,29 @@
   (data, script and npm package removed).
 - New ayahs need a line added to `scripts/align-source.py`; until then they use the
   fallback grouping and the translation reveals as a whole.
+
+# Phase 4 and 5, and Home
+
+- **Colours: Crimson #DC143C and Chalk #F2EFE7** (user's palette). Crimson text on
+  chalk uses a deeper #B30F31 where #DC143C would be too light to read.
+- **Themes (Phase 5):** Automatic (follows the device and the Claude viewer's dark
+  mode), Chalk, Sepia (browned ink, deeper crimson), Night (#141310, ink at ~88%, a
+  lifted crimson). Chosen in Settings; stored per browser.
+- **Arabic in verse by verse:** the mushaf's own King Fahd glyphs (default), or typed
+  text in Amiri Quran, Scheherazade New or Noto Naskh Arabic, all bundled for offline.
+  The mushaf pages always use the King Fahd fonts; Settings says so.
+- **Saving (Phase 4):** in the Claude link, groups and notes sync to one private
+  document in the user's account (`data/users/<id>/notes`, readable only by them),
+  merged newest-wins per ayah, pushed one write at a time after edits pause.
+  Outside the viewer, or if the account isn't reachable, they stay in the browser.
+  Resetting an ayah leaves a marker so the reset reaches other devices.
+  Instead of files on disk via a dev server (the spec's plan), because the user only
+  uses the link.
+- **Backup:** Settings → Download backup (a .json file) and Restore from backup
+  (checks it's a Hifz backup, asks before replacing, backup wins for the ayahs in it).
+- **App shell:** a top bar (where you are; page-turn and two-page buttons in the
+  mushaf, hide translations in verse by verse) and a bottom tab bar: Home, Mushaf,
+  Verse by verse, Settings, each with an icon.
+- **Home:** a crimson "Continue reading" card (last page, open in either view), your
+  added surahs, then all 114 surahs with search; surahs not added yet are listed but
+  dimmed.

@@ -10,6 +10,11 @@
 // An ayah with no saved note uses the suggested grouping. The first edit
 // saves the suggestion along with the change, so later improvements to the
 // suggester never move phrases that already have writing attached.
+//
+// Every note carries `updatedAt`, so copies from several devices (see
+// sync.ts) and restored backups merge newest-wins per ayah. Going back to the
+// suggestion leaves a `deleted` marker rather than nothing, so the reset
+// travels to other devices too.
 
 import { ayahWords, meaningEnds } from './data';
 import { suggestBreaks } from './suggest';
@@ -20,28 +25,79 @@ export interface Note {
   verseKey: string;
   breaks: number[];
   phrases: Record<string, PhraseData>;
+  updatedAt: number;
+  deleted?: boolean;
 }
 
 export interface Phrase extends PhraseData { start: number; end: number; index: number }
 
 const notes = new Map<string, Note>();
 
-// Until notes are saved to the account (Phase 4), edits are kept in this browser.
+// This browser's copy: shown instantly, and all there is when the account isn't reachable.
 const STORAGE_KEY = 'mushaf-notes-v2';
 try {
   const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}') as Record<string, Note>;
-  for (const n of Object.values(saved)) notes.set(n.verseKey, n);
+  for (const n of Object.values(saved)) if (isNote(n)) notes.set(n.verseKey, { ...n, updatedAt: n.updatedAt ?? 0 });
 } catch { /* unavailable or unreadable: start from suggestions */ }
 
-function persist(key: string): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(Object.fromEntries(notes)));
-  } catch { /* private mode: edits last for this visit */ }
-  listeners.forEach((fn) => fn(key));
+export function isNote(n: unknown): n is Note {
+  const x = n as Note;
+  return !!x && typeof x.verseKey === 'string' && /^\d{1,3}:\d{1,3}$/.test(x.verseKey)
+    && Array.isArray(x.breaks) && x.breaks.every((b) => Number.isInteger(b))
+    && typeof x.phrases === 'object' && x.phrases !== null;
+}
+
+function saveLocal(): void {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(Object.fromEntries(notes))); } catch { /* private mode */ }
 }
 
 const listeners = new Set<(verseKey: string) => void>();
+/** Hears every change, local or merged in; the key is '*' for a bulk merge. */
 export function onChange(fn: (verseKey: string) => void): void { listeners.add(fn); }
+const localWriters = new Set<() => void>();
+/** Hears only the memoriser's own edits here, for pushing them to the account. */
+export function onLocalWrite(fn: () => void): void { localWriters.add(fn); }
+
+function persist(key: string): void {
+  const note = notes.get(key);
+  if (note) note.updatedAt = Date.now();
+  saveLocal();
+  listeners.forEach((fn) => fn(key));
+  localWriters.forEach((fn) => fn());
+}
+
+/** Everything, tombstones included, for syncing and backups. */
+export function allNotes(): Record<string, Note> { return Object.fromEntries(notes); }
+
+/** How many ayahs carry the memoriser's own grouping or writing. */
+export function editedCount(): number { return [...notes.values()].filter((n) => !n.deleted).length; }
+
+/**
+ * Bring in notes from elsewhere. `newer`: keep whichever copy of each ayah
+ * was changed last (syncing). `incoming`: the incoming copy wins (restoring a
+ * backup) and is stamped now, so it wins on other devices too.
+ * Reports whether anything here changed and whether this copy holds anything
+ * the incoming set lacks or has older.
+ */
+export function mergeNotes(incoming: Record<string, unknown>, mode: 'newer' | 'incoming'): { changed: boolean; localAhead: boolean } {
+  let changed = false;
+  const now = Date.now();
+  for (const n of Object.values(incoming)) {
+    if (!isNote(n)) continue;
+    const mine = notes.get(n.verseKey);
+    if (mode === 'incoming') { notes.set(n.verseKey, { ...n, updatedAt: now }); changed = true; continue; }
+    if (!mine || (n.updatedAt ?? 0) > mine.updatedAt) { notes.set(n.verseKey, { ...n, updatedAt: n.updatedAt ?? 0 }); changed = true; }
+  }
+  const localAhead = mode === 'incoming' || [...notes.values()].some((mine) => {
+    const theirs = incoming[mine.verseKey] as Note | undefined;
+    return !theirs || (theirs.updatedAt ?? 0) < mine.updatedAt;
+  });
+  if (changed) { saveLocal(); listeners.forEach((fn) => fn('*')); }
+  if (mode === 'incoming') localWriters.forEach((fn) => fn());
+  return { changed, localAhead };
+}
+
+const live = (key: string) => { const n = notes.get(key); return n && !n.deleted ? n : undefined; };
 
 const suggestions = new Map<string, number[]>();
 export function suggested(key: string): number[] {
@@ -56,13 +112,13 @@ export const wordCount = (key: string) => ayahWords(key).length;
 
 /** True while the ayah is still grouped as suggested (whether or not anything is written). */
 export function usesSuggestion(key: string): boolean {
-  const note = notes.get(key);
+  const note = live(key);
   return !note || note.breaks.join() === suggested(key).join();
 }
 
 export function phrasesOf(key: string): Phrase[] {
   const count = wordCount(key);
-  const note = notes.get(key);
+  const note = live(key);
   const ends = [...new Set((note?.breaks ?? suggested(key)).filter((b) => b >= 0 && b < count - 1))].sort((a, b) => a - b);
   ends.push(count - 1);
   let start = 0;
@@ -79,8 +135,8 @@ export function phraseAt(key: string, wordIndex: number): Phrase | undefined {
 }
 
 function ensure(key: string): Note {
-  let note = notes.get(key);
-  if (!note) { note = { verseKey: key, breaks: [...suggested(key)], phrases: {} }; notes.set(key, note); }
+  let note = live(key);
+  if (!note) { note = { verseKey: key, breaks: [...suggested(key)], phrases: {}, updatedAt: 0 }; notes.set(key, note); }
   return note;
 }
 
@@ -111,11 +167,11 @@ export function moveBreak(key: string, from: number, to: number): void {
 
 /** Go back to the suggested grouping, keeping anything written against phrases that still exist. */
 export function resetToSuggested(key: string): void {
-  const note = notes.get(key);
+  const note = live(key);
   if (!note) return;
   const hasWriting = Object.values(note.phrases).some((p) => p.meaning || p.note);
   if (hasWriting) note.breaks = [...suggested(key)];
-  else notes.delete(key);
+  else notes.set(key, { verseKey: key, breaks: [], phrases: {}, updatedAt: 0, deleted: true });
   persist(key);
 }
 

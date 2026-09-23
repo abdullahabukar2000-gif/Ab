@@ -6,17 +6,24 @@
     <title>Hifz Mushaf</title>
   </head>
   <body>
-    <main id="stage" aria-label="Mushaf"></main>
-    <nav id="controls" aria-label="Controls">
-      <div class="group turn">
+    <header id="topbar">
+      <div class="topbar-title">
+        <span id="title"></span>
+        <span id="subtitle"></span>
+      </div>
+      <div class="topbar-actions">
         <button id="next" type="button" class="icon-only"></button>
         <button id="prev" type="button" class="icon-only"></button>
+        <button id="layout" type="button" class="icon-only"></button>
+        <button id="cover" type="button" class="icon-only"></button>
       </div>
-      <div class="group">
-        <button id="layout" type="button"></button>
-        <button id="view" type="button"></button>
-        <button id="cover" type="button"></button>
-      </div>
+    </header>
+    <main id="stage" aria-live="off"></main>
+    <nav id="tabs" aria-label="Sections">
+      <button type="button" data-view="home"></button>
+      <button type="button" data-view="mushaf"></button>
+      <button type="button" data-view="verses"></button>
+      <button type="button" data-view="settings"></button>
     </nav>
     <script type="module" src="/src/main.ts"></script>
   </body>

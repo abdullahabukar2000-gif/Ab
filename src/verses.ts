@@ -9,7 +9,11 @@ import { moveBreak, phrasesOf, resetToSuggested, toggleBreak, usesSuggestion, ty
 import { ayahLabel, h } from './dom';
 import { iconButton } from './icons';
 
-export interface VerseOptions { coverTranslations: boolean }
+export interface VerseOptions {
+  coverTranslations: boolean;
+  /** Font for the Arabic: '' for the mushaf's own glyphs, else a CSS font family. */
+  arabicFamily: string;
+}
 
 /** Which boxes show their English, per ayah, once the memoriser has tapped any. */
 const revealed = new Map<string, Set<number>>();
@@ -116,7 +120,8 @@ export function renderAyah(key: string, options: VerseOptions): HTMLElement {
     }
     text.append(unit);
   });
-  upgradeGlyphs(text);
+  if (options.arabicFamily) text.style.fontFamily = options.arabicFamily;
+  else upgradeGlyphs(text);
 
   article.append(head, text, english(key, phrases, options, rerender));
   return article;

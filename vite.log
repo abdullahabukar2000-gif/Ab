@@ -4,3 +4,22 @@
 
   ➜  Local:   http://localhost:5173/
   ➜  Network: use --host to expose
+9:46:58 AM [vite] (client) page reload src/icons.ts
+9:47:47 AM [vite] (client) page reload src/notes.ts
+9:48:15 AM [vite] (client) page reload src/data.ts
+9:48:21 AM [vite] (client) page reload src/data.ts
+9:49:12 AM [vite] (client) page reload src/verses.ts
+9:49:48 AM [vite] (client) page reload src/main.ts
+9:49:56 AM [vite] (client) page reload src/main.ts
+9:49:56 AM [vite] (client) page reload index.html
+9:50:14 AM [vite] (client) hmr update /src/styles/tokens.css
+9:50:38 AM [vite] (client) hmr update /src/styles/app.css
+9:51:05 AM [vite] (client) hmr update /src/styles/app.css
+9:51:20 AM [vite] (client) hmr update /src/styles/app.css
+9:51:39 AM [vite] (client) page reload src/main.ts
+9:52:34 AM [vite] (client) page reload src/render.ts
+9:52:34 AM [vite] (client) hmr update /src/styles/app.css
+9:53:43 AM [vite] (client) page reload src/main.ts
+9:54:48 AM [vite] (client) page reload src/settings.ts
+9:54:48 AM [vite] (client) page reload src/main.ts
+9:55:06 AM [vite] (client) page reload src/home.ts

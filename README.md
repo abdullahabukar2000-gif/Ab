@@ -11,6 +11,9 @@ npm run dev            # open the address it prints
 
 Keys: ← next page, → previous page (a mushaf reads right to left).
 
+Other scripts: `node scripts/translations.js` saves The Clear Quran for added surahs;
+`python3 scripts/align-source.py` checks and writes the meaning groups.
+
 `npm run preview:build` makes `dist/preview.html`, a single shareable file (fonts in
 `dist/fonts/`).
 

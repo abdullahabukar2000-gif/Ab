@@ -1,26 +1,29 @@
 /*
- * The only place colours are defined. Phase 2 ships the paper theme; sepia and
- * night will redefine these same tokens under [data-mood] in Phase 5.
+ * The only place colours are defined. Three moods, each art-directed: the ink
+ * shifts with the paper, not just the background.
+ *   chalk  crimson on warm white (the default)
+ *   sepia  aged paper, browned ink, a deeper crimson
+ *   night  a dark warm neutral, ink at ~88%, a lifted crimson that doesn't glare
+ * The mood is chosen in Settings ([data-mood]); "automatic" follows the device,
+ * and the Claude viewer's own dark mode ([data-theme="dark"]).
  */
 :root {
   color-scheme: light;
 
-  /* paper: warm off-white, ink a brown-black rather than pure black */
-  --paper: #faf7f0;
-  --ink: #1e1a13;
-  --ink-quiet: #7d7464;   /* page furniture: folio, running head */
-  --hairline: #e3dccb;    /* gutter, cartouche inner rule */
+  --paper: #f2efe7;        /* Chalk */
+  --paper-deep: #e8e3d8;   /* covered text, fields, pressed */
+  --surface: #faf8f3;      /* rows and cards that sit on the paper */
+  --ink: #1f1a17;
+  --ink-quiet: #6f6760;    /* page furniture, labels */
+  --hairline: #ddd6c9;
+  --card-rule: #d3cabb;
 
-  /* the one accent: crimson */
-  --accent: #a3172f;
-  --accent-wash: rgb(163 23 47 / 0.08);
+  --accent: #dc143c;       /* Crimson */
+  --accent-ink: #b30f31;   /* crimson for small text, where #dc143c is too light to read */
+  --on-accent: #f2efe7;    /* chalk on crimson */
+  --accent-wash: rgb(220 20 60 / 0.08);
+  --mark-wash: 8%;
 
-  --mark-wash: 8%;    /* the tapped phrase's tint: at most 8% */
-
-  --paper-deep: #f2ede1;
-  --card-rule: #d9d0bd;  /* phrase card border and drag grip */ /* covered flashcard, text fields */
-
-  /* type */
   --serif: 'Newsreader Variable', 'Source Serif 4', 'Iowan Old Style', Georgia, serif;
   --arabic: 'Amiri Quran', 'Scheherazade New', 'Noto Naskh Arabic', serif;
 
@@ -36,4 +39,64 @@
   --margin-block: 2.2;
 
   --fade: 120ms ease;
+}
+
+:root[data-mood='sepia'] {
+  --paper: #efe4cc;
+  --paper-deep: #e4d6b8;
+  --surface: #f5ecd8;
+  --ink: #3a2a1b;
+  --ink-quiet: #7a6550;
+  --hairline: #dccaa6;
+  --card-rule: #cfb993;
+  --accent: #b8132f;
+  --accent-ink: #9a1028;
+  --on-accent: #f5ecd8;
+  --accent-wash: rgb(184 19 47 / 0.09);
+}
+
+/* Night: the same set, used by the explicit choice and by "automatic" in the dark. */
+:root[data-mood='night'] {
+  color-scheme: dark;
+  --paper: #141310;
+  --paper-deep: #1f1d19;
+  --surface: #1a1915;
+  --ink: rgb(236 231 222 / 0.88);
+  --ink-quiet: #948c80;
+  --hairline: #2c2a25;
+  --card-rule: #3b3831;
+  --accent: #f04a68;
+  --accent-ink: #f47a90;
+  --on-accent: #141310;
+  --accent-wash: rgb(240 74 104 / 0.12);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-mood]):not([data-theme='light']) {
+    color-scheme: dark;
+    --paper: #141310;
+    --paper-deep: #1f1d19;
+    --surface: #1a1915;
+    --ink: rgb(236 231 222 / 0.88);
+    --ink-quiet: #948c80;
+    --hairline: #2c2a25;
+    --card-rule: #3b3831;
+    --accent: #f04a68;
+    --accent-ink: #f47a90;
+    --on-accent: #141310;
+    --accent-wash: rgb(240 74 104 / 0.12);
+  }
+}
+:root[data-theme='dark']:not([data-mood]) {
+  color-scheme: dark;
+  --paper: #141310;
+  --paper-deep: #1f1d19;
+  --surface: #1a1915;
+  --ink: rgb(236 231 222 / 0.88);
+  --ink-quiet: #948c80;
+  --hairline: #2c2a25;
+  --card-rule: #3b3831;
+  --accent: #f04a68;
+  --accent-ink: #f47a90;
+  --on-accent: #141310;
+  --accent-wash: rgb(240 74 104 / 0.12);
 }
