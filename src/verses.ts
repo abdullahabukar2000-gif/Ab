@@ -1,9 +1,9 @@
 // Verse by verse, like quran.com's: each ayah flows across the line, its
-// phrase groups each in a box. Below it sits one English line built from
-// the boxes: tap a box to reveal or hide its part. Drag the edge between two
-// boxes sideways to move words from one to the other.
+// words grouped by meaning, each group in a box. Below sits the translation,
+// word for word as published; tap a box to reveal or hide the part of the
+// sentence it means. Drag the edge between two boxes to regroup.
 
-import { ayahGlyphs, getPage, phraseGloss, surahOfPage, TRANSLATION_NAME, translationOf } from './data';
+import { ayahGlyphs, getPage, meaningEnds, surahOfPage, TRANSLATION_NAME, translationOf, translationPieces } from './data';
 import { ensureFont, isConfirmed, pageFamily } from './fonts';
 import { moveBreak, phrasesOf, resetToSuggested, toggleBreak, usesSuggestion, type Phrase } from './notes';
 import { ayahLabel, h } from './dom';
@@ -13,8 +13,6 @@ export interface VerseOptions { coverTranslations: boolean }
 
 /** Which boxes show their English, per ayah, once the memoriser has tapped any. */
 const revealed = new Map<string, Set<number>>();
-/** Ayahs showing the full Clear Quran sentence instead of the box-by-box English. */
-const fullSentence = new Set<string>();
 
 /** Called when "hide translations" is switched: every ayah goes back to the new default. */
 export function resetReveals(): void { revealed.clear(); }
@@ -22,19 +20,24 @@ export function resetReveals(): void { revealed.clear(); }
 const isRevealed = (key: string, start: number, options: VerseOptions) =>
   revealed.get(key)?.has(start) ?? !options.coverTranslations;
 
-function toggleReveal(key: string, start: number, phrases: Phrase[], options: VerseOptions): void {
+function revealSet(key: string, phrases: Phrase[], options: VerseOptions): Set<number> {
   let set = revealed.get(key);
   if (!set) {
     set = new Set(options.coverTranslations ? [] : phrases.map((p) => p.start));
     revealed.set(key, set);
   }
+  return set;
+}
+
+function toggleReveal(key: string, start: number, phrases: Phrase[], options: VerseOptions): void {
+  const set = revealSet(key, phrases, options);
   if (set.has(start)) set.delete(start); else set.add(start);
 }
 
 export function renderVerses(pageNumbers: number[], options: VerseOptions): HTMLElement {
   const root = h('div', { class: 'verses' });
   root.append(h('p', { class: 'verses-hint' },
-    'Tap a box to show or hide its English. Drag the edge between two boxes left or right to move words across. Double-tap a word to split its box there.'));
+    'Each box is one piece of meaning. Tap it to show or hide that part of the translation. Drag the edge between two boxes to move words across; double-tap a word to split its box there.'));
   const seen = new Set<string>();
   for (const n of pageNumbers) {
     const data = getPage(n);
@@ -49,7 +52,7 @@ export function renderVerses(pageNumbers: number[], options: VerseOptions): HTML
       root.append(renderAyah(key, options));
     }
   }
-  root.append(h('p', { class: 'verses-source' }, `English by box: quran.com word by word. Full sentence: ${TRANSLATION_NAME}.`));
+  root.append(h('p', { class: 'verses-source' }, `Translation: ${TRANSLATION_NAME}, unchanged. Groups follow its meaning.`));
   return root;
 }
 
@@ -69,7 +72,7 @@ export function renderAyah(key: string, options: VerseOptions): HTMLElement {
   const head = h('header', { class: 'ayah-head' },
     h('span', { class: 'ayah-num' }, key),
     h('span', { class: 'ayah-name' }, ayahLabel(key).replace(/ \d+$/, '')),
-    h('span', { class: 'ayah-status' }, suggestedNow ? 'suggested groups' : 'your groups'));
+    h('span', { class: 'ayah-status' }, suggestedNow ? 'grouped by meaning' : 'your groups'));
   if (!suggestedNow) {
     const reset = iconButton(h('button', { type: 'button', class: 'btn small' }), 'undo', 'use suggestion');
     reset.addEventListener('click', () => { resetToSuggested(key); rerender(); });
@@ -120,40 +123,46 @@ export function renderAyah(key: string, options: VerseOptions): HTMLElement {
 }
 
 /**
- * The one English line under the ayah. Box by box it holds each box's words
- * in English, shown only for the boxes you've revealed; or, on request, the
- * full translated sentence.
+ * The translation under the ayah, exactly as published. Each piece of it
+ * belongs to a meaning group; it shows when any box holding that group's
+ * words is revealed. Tapping a piece reveals (or hides) those boxes.
  */
 function english(key: string, phrases: Phrase[], options: VerseOptions, rerender: () => void): HTMLElement {
-  const wrap = h('div', { class: 'ayah-english' });
-  const switcher = h('button', { type: 'button', class: 'btn small' });
-  switcher.addEventListener('click', () => {
-    if (fullSentence.has(key)) fullSentence.delete(key); else fullSentence.add(key);
-    rerender();
-  });
+  const line = h('p', { class: 'english-line' });
+  const pieces = translationPieces(key);
+  const ends = meaningEnds(key);
+  const set = () => revealSet(key, phrases, options);
+  const isOpen = (p: Phrase) => revealed.get(key)?.has(p.start) ?? !options.coverTranslations;
 
-  if (fullSentence.has(key)) {
-    wrap.append(h('p', { class: 'english-line' }, translationOf(key) ?? 'No translation saved for this ayah yet.'));
-    iconButton(switcher, 'words', 'box by box');
-  } else {
-    const line = h('p', { class: 'english-line' });
-    phrases.forEach((p) => {
-      const open = isRevealed(key, p.start, options);
-      const gloss = phraseGloss(key, p.start, p.end) ?? '…';
-      // A hidden part keeps its length as a blank, like a word covered on a flashcard.
-      // A span, not a button, so a long part wraps with the sentence like ordinary text.
-      const part = h('span', { class: `english-part${open ? ' open' : ''}`, role: 'button', tabindex: '0' }, gloss);
-      part.setAttribute('aria-label', open ? gloss : 'Hidden. Tap to reveal.');
-      const flip = () => { toggleReveal(key, p.start, phrases, options); rerender(); };
-      part.addEventListener('click', flip);
-      part.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); flip(); } });
-      line.append(part, ' ');
-    });
-    wrap.append(line);
-    iconButton(switcher, 'sentence', 'full sentence');
+  if (!pieces || !ends) {
+    // Not matched to the translation yet: the sentence shows once any box is revealed.
+    const text = translationOf(key) ?? 'No translation saved for this ayah yet.';
+    const open = phrases.some(isOpen);
+    line.append(h('span', { class: `english-part${open ? ' open' : ''}` }, text));
+    return h('div', { class: 'ayah-english' }, line);
   }
-  wrap.append(switcher);
-  return wrap;
+
+  const boxesFor = (group: number) => {
+    const lo = group ? ends[group - 1] + 1 : 0;
+    const hi = ends[group];
+    return phrases.filter((p) => p.start <= hi && p.end >= lo);
+  };
+  for (const piece of pieces) {
+    const boxes = boxesFor(piece.group);
+    const open = boxes.some(isOpen);
+    // A span, not a button, so a long piece wraps with the sentence like ordinary text.
+    const part = h('span', { class: `english-part${open ? ' open' : ''}`, role: 'button', tabindex: '0' }, piece.text);
+    part.setAttribute('aria-label', open ? piece.text : 'Hidden. Tap to reveal.');
+    const flip = () => {
+      const s = set();
+      if (open) boxes.forEach((b) => s.delete(b.start)); else boxes.forEach((b) => s.add(b.start));
+      rerender();
+    };
+    part.addEventListener('click', flip);
+    part.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); flip(); } });
+    line.append(piece.before, part);
+  }
+  return h('div', { class: 'ayah-english' }, line);
 }
 
 /**

@@ -11,7 +11,7 @@
 // saves the suggestion along with the change, so later improvements to the
 // suggester never move phrases that already have writing attached.
 
-import { ayahWords } from './data';
+import { ayahWords, meaningEnds } from './data';
 import { suggestBreaks } from './suggest';
 
 export interface PhraseData { meaning: string; note: string }
@@ -46,7 +46,9 @@ export function onChange(fn: (verseKey: string) => void): void { listeners.add(f
 const suggestions = new Map<string, number[]>();
 export function suggested(key: string): number[] {
   let s = suggestions.get(key);
-  if (!s) { s = suggestBreaks(ayahWords(key)); suggestions.set(key, s); }
+  // Meaning groups matched to the translation where they exist; otherwise the
+  // pause-sign and phrase-length guess.
+  if (!s) { s = meaningEnds(key)?.slice(0, -1) ?? suggestBreaks(ayahWords(key)); suggestions.set(key, s); }
   return s;
 }
 

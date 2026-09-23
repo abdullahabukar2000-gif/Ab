@@ -123,3 +123,21 @@
 - **Two-page view is back** (odd page on the right). Hidden on phones, where the
   spread would be too small to read.
 - Verse by verse stays a vertical scroll. Switching views or layouts keeps your page.
+
+# Groups by meaning, one translation (after box-by-box feedback)
+
+- **Suggested groups now follow the meaning** of The Clear Quran: each group of Arabic
+  words is matched to the piece(s) of the published translation it means
+  (`scripts/align-source.py` → `data/align/clear-quran.json`, 68 ayahs, 311 groups).
+  The script checks the groups cover every Arabic word in order and that the pieces
+  rebuild the translation exactly; the translation is never edited. Where English
+  order differs, a group may own two separate pieces (e.g. 14:38 "Nothing … is hidden
+  from Allah"). Ayahs without an alignment fall back to the pause-sign guess.
+- **One translation line per ayah**, the published sentence in its own order. Tapping
+  a box reveals or hides the piece(s) its words translate; tapping a piece does the
+  same. If you regroup so a box covers only part of a meaning group, revealing it
+  shows that whole piece (English can't be split finer than the alignment).
+- The word-by-word English and the "full sentence / box by box" switch are gone
+  (data, script and npm package removed).
+- New ayahs need a line added to `scripts/align-source.py`; until then they use the
+  fallback grouping and the translation reveals as a whole.

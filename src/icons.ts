@@ -12,8 +12,6 @@ const paths = {
   chevronLeft: '<path d="M15 18l-6-6 6-6"/>',
   chevronRight: '<path d="M9 18l6-6-6-6"/>',
   undo: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>',
-  sentence: '<path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h9"/><path d="M17 15l3 2-3 2"/>',
-  words: '<rect x="3" y="7" width="6" height="10" rx="1.5"/><rect x="11" y="7" width="10" height="10" rx="1.5"/>',
 } as const;
 
 export type IconName = keyof typeof paths;
