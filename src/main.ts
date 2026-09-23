@@ -5,7 +5,8 @@ import '@fontsource/scheherazade-new/arabic-400.css';
 import '@fontsource/noto-naskh-arabic/arabic-400.css';
 import './styles/tokens.css';
 import './styles/app.css';
-import { availablePages, getChapter, getPage } from './data';
+import { availablePages, getChapter, getPage, loadIndex, loadPages, surahsOnPage, TOTAL_PAGES } from './data';
+import { loadFontUrls } from './fonts';
 import { iconButton, type IconName } from './icons';
 import { renderPage, upgradeToGlyphs } from './render';
 import { renderVerses, resetReveals } from './verses';
@@ -35,7 +36,8 @@ const VIEWS: View[] = ['home', 'mushaf', 'verses', 'settings'];
 let view: View = VIEWS.includes(store.get('view') as View) ? store.get('view') as View : 'home';
 let layout: Layout = store.get('layout') === 'spread' ? 'spread' : 'single';
 let coverTranslations = store.get('cover') === 'yes';
-let lastPage: number | null = availablePages.includes(Number(store.get('page'))) ? Number(store.get('page')) : null;
+const savedPage = Number(store.get('page'));
+let lastPage: number | null = savedPage >= 1 && savedPage <= TOTAL_PAGES ? savedPage : null;
 const prefs: Prefs = {
   mood: (['auto', 'chalk', 'sepia', 'night'] as Mood[]).find((m) => m === store.get('mood')) ?? 'auto',
   script: (['mushaf', 'amiri', 'scheherazade', 'naskh'] as Script[]).find((s) => s === store.get('script')) ?? 'mushaf',
@@ -72,9 +74,9 @@ function updateTitle(): void {
   if (view === 'settings') { title.textContent = 'Settings'; subtitle.textContent = ''; return; }
   subtitle.lang = 'en';
   const page = pageInView();
-  const data = getPage(page);
-  // Every surah on the page, as a page where one surah ends and the next begins holds both.
-  const surahs = data ? [...new Set(data.verses.map((k) => Number(k.split(':')[0])))] : [];
+  const shown = view === 'mushaf' && layout === 'spread' ? currentSlot() ?? [page] : [page];
+  // Every surah on screen, as a page where one surah ends and the next begins holds both.
+  const surahs = [...new Set(shown.flatMap(surahsOnPage))];
   title.textContent = surahs.map((id) => getChapter(id)?.name_complex ?? '').join(' · ');
   const pages = view === 'mushaf' && layout === 'spread' ? currentSlot()?.join('–') : String(page);
   subtitle.textContent = view === 'verses' ? `Verse by verse · page ${page}` : `Page ${pages}`;
@@ -95,28 +97,58 @@ function slotsOf(): number[][] {
   return slots;
 }
 
-function show(): void {
+/** Redraw the current view; mushaf and verse by verse open at `page`. */
+function show(page = lastPage ?? 1): void {
   updateChrome();
   stage.scrollTop = 0;
+  verseJob = null;
   if (view === 'home') {
     stage.replaceChildren(renderHome(lastPage, { openPage }));
     return;
   }
   if (view === 'settings') {
-    stage.replaceChildren(renderSettings(prefs, changePrefs));
+    // The script samples are real words from page 255, so it loads first.
+    stage.replaceChildren();
+    loadPages([255]).catch(() => undefined).then(() => {
+      if (view === 'settings') stage.replaceChildren(renderSettings(prefs, changePrefs));
+    });
     return;
   }
   if (view === 'verses') {
-    stage.replaceChildren(renderVerses(availablePages, { coverTranslations, arabicFamily: scriptFamily(prefs.script) }));
+    const { root, ready } = renderVerses(page, { coverTranslations, arabicFamily: scriptFamily(prefs.script) });
+    stage.replaceChildren(root);
+    verseJob = ready;
     return;
   }
   // The mushaf, swiped sideways: laid out right to left, so the first page
   // sits at the right and the next one comes in from the left, as in print.
+  // All 604 pages have a place, but only those near the screen are drawn.
+  slotObserver?.disconnect();
+  slotObserver = new IntersectionObserver((entries) => {
+    for (const e of entries) {
+      const slot = e.target as HTMLElement;
+      if (e.isIntersecting) fillSlot(slot); else emptySlot(slot);
+    }
+  }, { root: stage, rootMargin: '0px 300%' });
   stage.replaceChildren(...slotsOf().map((pages) => {
     const slot = document.createElement('section');
     slot.className = 'slot';
     slot.dataset.page = String(pages[0]);
     slot.dataset.pages = pages.join(',');
+    slotObserver!.observe(slot);
+    return slot;
+  }));
+}
+
+let slotObserver: IntersectionObserver | null = null;
+let verseJob: Promise<void> | null = null;
+
+function fillSlot(slot: HTMLElement): void {
+  if (slot.dataset.filled) return;
+  slot.dataset.filled = 'yes';
+  const pages = slot.dataset.pages!.split(',').map(Number);
+  loadPages(pages).then(() => {
+    if (!slot.dataset.filled || slot.childElementCount) return;
     const spread = document.createElement('div');
     spread.className = 'spread';
     spread.dir = 'rtl';
@@ -127,8 +159,15 @@ function show(): void {
       queueMicrotask(() => upgradeToGlyphs(pageEl, data));
     }
     slot.append(spread);
-    return slot;
-  }));
+  }).catch(() => {
+    delete slot.dataset.filled;
+    slot.replaceChildren(Object.assign(document.createElement('p'), { className: 'slot-error', textContent: 'This page couldn’t load. Swipe away and back to try again.' }));
+  });
+}
+
+function emptySlot(slot: HTMLElement): void {
+  delete slot.dataset.filled;
+  slot.replaceChildren();
 }
 
 function currentSlot(): number[] | undefined {
@@ -139,16 +178,14 @@ function currentSlot(): number[] | undefined {
 function pageInView(): number {
   const box = stage.getBoundingClientRect();
   if (view === 'mushaf') {
-    let best = lastPage ?? availablePages[0];
-    let bestDistance = Infinity;
-    for (const slot of stage.querySelectorAll<HTMLElement>('.slot')) {
-      const d = Math.abs(slot.getBoundingClientRect().left - box.left);
-      if (d < bestDistance) { bestDistance = d; best = Number(slot.dataset.page); }
-    }
-    return best;
+    // One slot per screen width; right to left, so scrollLeft counts down from 0.
+    const slots = stage.children;
+    const at = Math.round(Math.abs(stage.scrollLeft) / Math.max(1, stage.clientWidth));
+    const slot = slots[Math.min(at, slots.length - 1)] as HTMLElement | undefined;
+    return slot ? Number(slot.dataset.page) : lastPage ?? 1;
   }
   if (view === 'verses') {
-    let current = availablePages[0];
+    let current = lastPage ?? 1;
     for (const el of stage.querySelectorAll<HTMLElement>('.verses-page')) {
       if (el.getBoundingClientRect().top <= box.top + stage.clientHeight / 3) current = Number(el.dataset.page);
     }
@@ -162,6 +199,7 @@ function scrollToPage(page: number, smooth = false): void {
   const box = stage.getBoundingClientRect();
   if (view === 'mushaf') {
     const slot = [...stage.querySelectorAll<HTMLElement>('.slot')].find((s) => s.dataset.pages!.split(',').map(Number).includes(page));
+    if (slot && !smooth) fillSlot(slot);
     if (slot) {
       // Snap points stop a scroll at every page on the way; a jump should go straight there.
       if (!smooth) stage.style.scrollSnapType = 'none';
@@ -186,11 +224,20 @@ let scrollTimer: number | undefined;
 stage.addEventListener('scroll', () => { clearTimeout(scrollTimer); scrollTimer = window.setTimeout(remember, 150); }, { passive: true });
 
 function go(next: View, page?: number): void {
-  const keep = page ?? (view === 'mushaf' || view === 'verses' ? pageInView() : lastPage ?? availablePages[0]);
+  const keep = page ?? (view === 'mushaf' || view === 'verses' ? pageInView() : lastPage ?? 1);
   view = next;
   store.set('view', view);
+  show(keep);
+  if (next === 'mushaf') scrollToPage(keep);
+  if (next === 'verses') verseJob?.then(() => { if (view === 'verses') scrollToPage(keep); });
+}
+
+/** Redraw in place: the same page stays in view. */
+function refresh(): void {
+  if (view === 'mushaf' || view === 'verses') { go(view, pageInView()); return; }
+  const scroll = stage.scrollTop;
   show();
-  if (next === 'mushaf' || next === 'verses') scrollToPage(keep);
+  stage.scrollTop = scroll;
 }
 
 function openPage(page: number, target: 'mushaf' | 'verses'): void { go(target, page); }
@@ -200,9 +247,7 @@ function changePrefs(p: Partial<Prefs>): void {
   store.set('mood', prefs.mood);
   store.set('script', prefs.script);
   applyMood();
-  const scroll = stage.scrollTop;
-  show();
-  stage.scrollTop = scroll;
+  refresh();
 }
 
 /** Move one slot on (1) or back (-1). */
@@ -220,16 +265,13 @@ layoutButton.addEventListener('click', () => {
   const page = pageInView();
   layout = layout === 'single' ? 'spread' : 'single';
   store.set('layout', layout);
-  show();
-  scrollToPage(page);
+  go('mushaf', page);
 });
 coverButton.addEventListener('click', () => {
-  const scroll = stage.scrollTop;
   coverTranslations = !coverTranslations;
   resetReveals();
   store.set('cover', coverTranslations ? 'yes' : 'no');
-  show();
-  stage.scrollTop = scroll;
+  refresh();
 });
 nextButton.addEventListener('click', () => turn(1));
 prevButton.addEventListener('click', () => turn(-1));
@@ -249,11 +291,7 @@ onChange((key) => {
     if (line) line.textContent = countText();
     return;
   }
-  if (view === 'verses') {
-    const scroll = stage.scrollTop;
-    show();
-    stage.scrollTop = scroll;
-  }
+  if (view === 'verses') refresh();
 });
 onSyncState(() => {
   if (view !== 'settings') return;
@@ -262,5 +300,11 @@ onSyncState(() => {
 });
 
 applyMood();
-go(view);
-startSync();
+updateChrome();
+// The small page index and the font list come first; pages load as they're reached.
+Promise.all([loadIndex(), loadFontUrls()]).then(() => {
+  go(view);
+  startSync();
+}).catch(() => {
+  stage.textContent = 'The Quran pages couldn’t load. Check your connection and reload.';
+});

@@ -1,0 +1,325 @@
+{
+  "page": 1,
+  "mushaf": "qcf_v2",
+  "lines": [
+    {
+      "line": 1,
+      "type": "surah_name",
+      "centered": true,
+      "words": [],
+      "surah": 1,
+      "name": "سُورَةُ ٱلْفَاتِحَةِ"
+    },
+    {
+      "line": 2,
+      "type": "text",
+      "centered": true,
+      "words": [
+        {
+          "code": "ﱁ",
+          "uthmani": "بِسْمِ",
+          "verseKey": "1:1",
+          "pos": 1,
+          "type": "word"
+        },
+        {
+          "code": "ﱂ",
+          "uthmani": "ٱللَّهِ",
+          "verseKey": "1:1",
+          "pos": 2,
+          "type": "word"
+        },
+        {
+          "code": "ﱃ",
+          "uthmani": "ٱلرَّحْمَـٰنِ",
+          "verseKey": "1:1",
+          "pos": 3,
+          "type": "word"
+        },
+        {
+          "code": "ﱄ",
+          "uthmani": "ٱلرَّحِيمِ",
+          "verseKey": "1:1",
+          "pos": 4,
+          "type": "word"
+        },
+        {
+          "code": "ﱅ",
+          "uthmani": "١",
+          "verseKey": "1:1",
+          "pos": 5,
+          "type": "end"
+        }
+      ]
+    },
+    {
+      "line": 3,
+      "type": "text",
+      "centered": true,
+      "words": [
+        {
+          "code": "ﱆ",
+          "uthmani": "ٱلْحَمْدُ",
+          "verseKey": "1:2",
+          "pos": 1,
+          "type": "word"
+        },
+        {
+          "code": "ﱇ",
+          "uthmani": "لِلَّهِ",
+          "verseKey": "1:2",
+          "pos": 2,
+          "type": "word"
+        },
+        {
+          "code": "ﱈ",
+          "uthmani": "رَبِّ",
+          "verseKey": "1:2",
+          "pos": 3,
+          "type": "word"
+        },
+        {
+          "code": "ﱉ",
+          "uthmani": "ٱلْعَـٰلَمِينَ",
+          "verseKey": "1:2",
+          "pos": 4,
+          "type": "word"
+        },
+        {
+          "code": "ﱊ",
+          "uthmani": "٢",
+          "verseKey": "1:2",
+          "pos": 5,
+          "type": "end"
+        }
+      ]
+    },
+    {
+      "line": 4,
+      "type": "text",
+      "centered": true,
+      "words": [
+        {
+          "code": "ﱋ",
+          "uthmani": "ٱلرَّحْمَـٰنِ",
+          "verseKey": "1:3",
+          "pos": 1,
+          "type": "word"
+        },
+        {
+          "code": "ﱌ",
+          "uthmani": "ٱلرَّحِيمِ",
+          "verseKey": "1:3",
+          "pos": 2,
+          "type": "word"
+        },
+        {
+          "code": "ﱍ",
+          "uthmani": "٣",
+          "verseKey": "1:3",
+          "pos": 3,
+          "type": "end"
+        },
+        {
+          "code": "ﱎ",
+          "uthmani": "مَـٰلِكِ",
+          "verseKey": "1:4",
+          "pos": 1,
+          "type": "word"
+        },
+        {
+          "code": "ﱏ",
+          "uthmani": "يَوْمِ",
+          "verseKey": "1:4",
+          "pos": 2,
+          "type": "word"
+        },
+        {
+          "code": "ﱐ",
+          "uthmani": "ٱلدِّينِ",
+          "verseKey": "1:4",
+          "pos": 3,
+          "type": "word"
+        },
+        {
+          "code": "ﱑ",
+          "uthmani": "٤",
+          "verseKey": "1:4",
+          "pos": 4,
+          "type": "end"
+        }
+      ]
+    },
+    {
+      "line": 5,
+      "type": "text",
+      "centered": true,
+      "words": [
+        {
+          "code": "ﱒ",
+          "uthmani": "إِيَّاكَ",
+          "verseKey": "1:5",
+          "pos": 1,
+          "type": "word"
+        },
+        {
+          "code": "ﱓ",
+          "uthmani": "نَعْبُدُ",
+          "verseKey": "1:5",
+          "pos": 2,
+          "type": "word"
+        },
+        {
+          "code": "ﱔ",
+          "uthmani": "وَإِيَّاكَ",
+          "verseKey": "1:5",
+          "pos": 3,
+          "type": "word"
+        },
+        {
+          "code": "ﱕ",
+          "uthmani": "نَسْتَعِينُ",
+          "verseKey": "1:5",
+          "pos": 4,
+          "type": "word"
+        },
+        {
+          "code": "ﱖ",
+          "uthmani": "٥",
+          "verseKey": "1:5",
+          "pos": 5,
+          "type": "end"
+        },
+        {
+          "code": "ﱗ",
+          "uthmani": "ٱهْدِنَا",
+          "verseKey": "1:6",
+          "pos": 1,
+          "type": "word"
+        }
+      ]
+    },
+    {
+      "line": 6,
+      "type": "text",
+      "centered": true,
+      "words": [
+        {
+          "code": "ﱘ",
+          "uthmani": "ٱلصِّرَٰطَ",
+          "verseKey": "1:6",
+          "pos": 2,
+          "type": "word"
+        },
+        {
+          "code": "ﱙ",
+          "uthmani": "ٱلْمُسْتَقِيمَ",
+          "verseKey": "1:6",
+          "pos": 3,
+          "type": "word"
+        },
+        {
+          "code": "ﱚ",
+          "uthmani": "٦",
+          "verseKey": "1:6",
+          "pos": 4,
+          "type": "end"
+        },
+        {
+          "code": "ﱛ",
+          "uthmani": "صِرَٰطَ",
+          "verseKey": "1:7",
+          "pos": 1,
+          "type": "word"
+        },
+        {
+          "code": "ﱜ",
+          "uthmani": "ٱلَّذِينَ",
+          "verseKey": "1:7",
+          "pos": 2,
+          "type": "word"
+        },
+        {
+          "code": "ﱝ",
+          "uthmani": "أَنْعَمْتَ",
+          "verseKey": "1:7",
+          "pos": 3,
+          "type": "word"
+        }
+      ]
+    },
+    {
+      "line": 7,
+      "type": "text",
+      "centered": true,
+      "words": [
+        {
+          "code": "ﱞ",
+          "uthmani": "عَلَيْهِمْ",
+          "verseKey": "1:7",
+          "pos": 4,
+          "type": "word"
+        },
+        {
+          "code": "ﱟ",
+          "uthmani": "غَيْرِ",
+          "verseKey": "1:7",
+          "pos": 5,
+          "type": "word"
+        },
+        {
+          "code": "ﱠ",
+          "uthmani": "ٱلْمَغْضُوبِ",
+          "verseKey": "1:7",
+          "pos": 6,
+          "type": "word"
+        },
+        {
+          "code": "ﱡ",
+          "uthmani": "عَلَيْهِمْ",
+          "verseKey": "1:7",
+          "pos": 7,
+          "type": "word"
+        }
+      ]
+    },
+    {
+      "line": 8,
+      "type": "text",
+      "centered": true,
+      "words": [
+        {
+          "code": "ﱢ",
+          "uthmani": "وَلَا",
+          "verseKey": "1:7",
+          "pos": 8,
+          "type": "word"
+        },
+        {
+          "code": "ﱣ",
+          "uthmani": "ٱلضَّآلِّينَ",
+          "verseKey": "1:7",
+          "pos": 9,
+          "type": "word"
+        },
+        {
+          "code": "ﱤ",
+          "uthmani": "٧",
+          "verseKey": "1:7",
+          "pos": 10,
+          "type": "end"
+        }
+      ]
+    }
+  ],
+  "verses": [
+    "1:1",
+    "1:2",
+    "1:3",
+    "1:4",
+    "1:5",
+    "1:6",
+    "1:7"
+  ],
+  "source": "github.com/zonetecde/mushaf-layout (community copy, not official)"
+}

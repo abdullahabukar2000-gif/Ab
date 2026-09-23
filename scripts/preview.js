@@ -11,5 +11,5 @@ const styles = pick(/<style[\s\S]*?<\/style>/g);
 const scripts = pick(/<script[\s\S]*?<\/script>/g);
 const body = html.match(/<body>([\s\S]*?)<\/body>/)[1].replace(/<script[\s\S]*?<\/script>/g, '');
 
-writeFileSync('dist/preview.html', [title, styles, body.trim(), scripts].join('\n'));
+writeFileSync('dist/preview.html', ['<meta charset="utf-8">', title, styles, body.trim(), scripts].join('\n'));
 console.log(`dist/preview.html (${(Buffer.byteLength(readFileSync('dist/preview.html')) / 1024).toFixed(0)} KB)`);

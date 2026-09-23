@@ -110,6 +110,13 @@ body {
 /* Before the page font is confirmed: readable Unicode Uthmani, a little smaller. */
 .page[data-glyphs='pending'] .line.text { font-size: 0.74em; overflow: hidden; }
 
+/* Pages kept as typed text: the same Unicode Uthmani, permanently. */
+.page[data-glyphs='typed'] .line.text { font-size: 0.74em; overflow: hidden; }
+.page[data-glyphs='typed'] .line.text .w { flex: 0 1 auto; }
+
+/* Pages 1 and 2: eight lines set in the middle of the page. */
+.block.short { grid-template-rows: repeat(8, calc(var(--line-height) * 1em)); align-content: center; }
+
 /* Only once confirmed: the glyph codes, in that page's own font. */
 .page[data-glyphs='ready'] .line.text { font-family: var(--page-font); font-size: 1em; }
 
@@ -156,10 +163,21 @@ body {
   letter-spacing: 0.12em;
 }
 .folio { bottom: calc(var(--margin-block) * 0.3em / 0.4); }
+.typed-note {
+  bottom: calc(var(--margin-block) * 0.3em / 0.4);
+  letter-spacing: 0;
+  font-style: italic;
+  max-width: 70%;
+}
+/* A page not loaded yet: its space held so swiping stays smooth. */
+.page-placeholder { width: calc(var(--page-w) * 1em); height: calc(var(--page-h) * 1em); }
 
 /* Outer corners: the right-hand page numbers itself on the right, the left on the left. */
 .page[data-side='right'] .furniture { right: calc(var(--margin-inline) * 1em / 0.4); }
 .page[data-side='left'] .furniture { left: calc(var(--margin-inline) * 1em / 0.4); }
+/* The typed-text note sits in the inner corner, clear of the page number. */
+#stage .page[data-side='right'] .typed-note { right: auto; left: calc(var(--margin-inline) * 1em / 0.4); }
+#stage .page[data-side='left'] .typed-note { left: auto; right: calc(var(--margin-inline) * 1em / 0.4); }
 
 /* ------------------------------------------------------------------ top bar */
 

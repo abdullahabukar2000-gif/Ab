@@ -167,3 +167,21 @@
 - **Home:** a crimson "Continue reading" card (last page, open in either view), your
   added surahs, then all 114 surahs with search; surahs not added yet are listed but
   dimmed.
+
+# The whole Quran
+
+- All 604 pages are in. `scripts/check-quran.js` walks all 6,236 ayahs across the pages
+  and confirms each is present once with every word in order.
+- 577 pages show in the King Fahd font. 27 pages (121–123, 144, 207, 532–534, 565, 568,
+  570, 576, 584–593, 595–599) show typed Uthmani text instead, with a note on the page:
+  their glyph codes or line positions couldn't be confirmed against the King Fahd listing,
+  and a wrong glyph is wrong Qur'anic text. The basmalah still uses its own font there.
+- Pages 1 and 2 have 8 lines, set in the middle of the page as in print.
+- The app loads a small index first, then pages in files of 20 as you reach them. The
+  mushaf keeps a place for every page but only draws those near the screen; verse by
+  verse starts at your page and adds three pages at a time as you scroll, with a button
+  for the pages before.
+- Fonts (199 MB, unchanged TTFs) live in the artifact's file store, not in git.
+- Home lists every surah with its ayah count and the page it starts on.
+- Meaning groups matched to the translation still exist only for pages 255–262. Every
+  other ayah uses the pause-sign guess, and its translation shows whole.

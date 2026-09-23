@@ -11,11 +11,21 @@ npm run dev            # open the address it prints
 
 Keys: ← next page, → previous page (a mushaf reads right to left).
 
-Other scripts: `node scripts/translations.js` saves The Clear Quran for added surahs;
-`python3 scripts/align-source.py` checks and writes the meaning groups.
+The page layouts for all 604 pages are in `data/pages/`, packed for the app into
+`public/data/` (index, 31 files of 20 pages, the translation). Only a few page fonts
+are kept in git; the rest are downloaded by the ingest script:
 
-`npm run preview:build` makes `dist/preview.html`, a single shareable file (fonts in
-`dist/fonts/`).
+```
+node scripts/ingest.js 1-604 --source github --allow-typed   # layouts + fonts
+node scripts/check-quran.js     # every ayah present once, every word in order
+node scripts/translations.js    # The Clear Quran, every surah
+node scripts/pack.js            # writes public/data/
+python3 scripts/align-source.py # checks and writes the meaning groups
+```
+
+`npm run preview:build` makes `dist/preview.html`, the page that's published. The
+published app reads its page fonts from the artifact's file store; `data/font-assets.json`
+lists where each one is (page → address) and is published as `data/fonts.json`.
 
 ## Get a page's layout (Phase 1)
 

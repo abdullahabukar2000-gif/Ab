@@ -3,7 +3,7 @@
 // word for word as published; tap a box to reveal or hide the part of the
 // sentence it means. Drag the edge between two boxes to regroup.
 
-import { ayahGlyphs, getPage, meaningEnds, surahOfPage, TRANSLATION_NAME, translationOf, translationPieces } from './data';
+import { ayahGlyphs, getPage, glyphsVerified, loadPages, loadTranslations, meaningEnds, surahOfPage, TOTAL_PAGES, TRANSLATION_NAME, translationOf, translationPieces } from './data';
 import { ensureFont, isConfirmed, pageFamily } from './fonts';
 import { moveBreak, phrasesOf, resetToSuggested, toggleBreak, usesSuggestion, type Phrase } from './notes';
 import { ayahLabel, h } from './dom';
@@ -38,26 +38,85 @@ function toggleReveal(key: string, start: number, phrases: Phrase[], options: Ve
   if (set.has(start)) set.delete(start); else set.add(start);
 }
 
-export function renderVerses(pageNumbers: number[], options: VerseOptions): HTMLElement {
+/** How many pages verse by verse adds at a time as you scroll. */
+const BATCH = 3;
+
+/**
+ * Verse by verse from `startPage` on. More pages are added as you near the
+ * bottom; a button at the top adds the pages before. `ready` resolves once the
+ * first pages are on screen.
+ */
+export function renderVerses(startPage: number, options: VerseOptions): { root: HTMLElement; ready: Promise<void> } {
   const root = h('div', { class: 'verses' });
   root.append(h('p', { class: 'verses-hint' },
     'Each box is one piece of meaning. Tap it to show or hide that part of the translation. Drag the edge between two boxes to move words across; double-tap a word to split its box there.'));
+  const body = h('div', { class: 'verses-body' });
+  const loading = h('p', { class: 'verses-loading', role: 'status' }, 'Loading…');
+  const sentinel = h('div', { class: 'verses-sentinel' });
+  const earlier = iconButton(h('button', { type: 'button', class: 'btn verses-earlier' }), 'chevronUp', 'Earlier pages');
+  root.append(earlier, body, loading, sentinel,
+    h('p', { class: 'verses-source' }, `Translation: ${TRANSLATION_NAME}, unchanged. Groups follow its meaning.`));
+
   const seen = new Set<string>();
-  for (const n of pageNumbers) {
-    const data = getPage(n);
-    if (!data) continue;
-    const chapter = surahOfPage(data);
-    const heading = h('p', { class: 'verses-page' }, `${chapter?.name_complex ?? ''} · page ${n}`);
-    heading.dataset.page = String(n);
-    root.append(heading);
-    for (const key of data.verses) {
-      if (seen.has(key)) continue;
-      seen.add(key);
-      root.append(renderAyah(key, options));
+  let first = startPage;
+  let last = startPage - 1;
+  let busy: Promise<void> | null = null;
+
+  /** Render pages `from`..`to`, each ayah once, with the pages each ayah touches loaded first. */
+  async function build(from: number, to: number): Promise<DocumentFragment> {
+    const nums = Array.from({ length: to - from + 1 }, (_, i) => from + i);
+    await Promise.all([loadTranslations(), loadPages([from - 1, ...nums, to + 1])]);
+    const frag = document.createDocumentFragment();
+    for (const n of nums) {
+      const data = getPage(n);
+      if (!data) continue;
+      const chapter = surahOfPage(data);
+      const heading = h('p', { class: 'verses-page' }, `${chapter?.name_complex ?? ''} · page ${n}`);
+      heading.dataset.page = String(n);
+      frag.append(heading);
+      for (const key of data.verses) {
+        if (seen.has(key)) continue;
+        seen.add(key);
+        frag.append(renderAyah(key, options));
+      }
     }
+    return frag;
   }
-  root.append(h('p', { class: 'verses-source' }, `Translation: ${TRANSLATION_NAME}, unchanged. Groups follow its meaning.`));
-  return root;
+
+  const more = () => {
+    if (busy || last >= TOTAL_PAGES) return busy;
+    const from = last + 1;
+    const to = Math.min(TOTAL_PAGES, last + BATCH);
+    busy = build(from, to).then((frag) => {
+      body.append(frag);
+      last = to;
+      if (last >= TOTAL_PAGES) loading.remove();
+    }).catch(() => { loading.textContent = 'Couldn’t load more pages. Scroll again to retry.'; })
+      .finally(() => { busy = null; });
+    return busy;
+  };
+
+  const updateEarlier = () => { earlier.hidden = first <= 1; };
+  earlier.addEventListener('click', async () => {
+    if (first <= 1) return;
+    const from = Math.max(1, first - BATCH);
+    const frag = await build(from, first - 1);
+    // Keep what you were reading where it was while the earlier pages go in above.
+    const scroller = root.parentElement;
+    const before = body.scrollHeight;
+    body.prepend(frag);
+    if (scroller) scroller.scrollTop += body.scrollHeight - before;
+    first = from;
+    updateEarlier();
+  });
+  updateEarlier();
+
+  new IntersectionObserver((entries) => {
+    if (entries.some((e) => e.isIntersecting)) more();
+  }, { rootMargin: '1200px 0px' }).observe(sentinel);
+
+  const ready = more() ?? Promise.resolve();
+  return { root, ready: ready.then(() => undefined) };
 }
 
 export function renderAyah(key: string, options: VerseOptions): HTMLElement {
@@ -238,6 +297,8 @@ function upgradeGlyphs(container: HTMLElement): void {
     byPage.get(page)!.push(span);
   }
   for (const [page, spans] of byPage) {
+    // Typed-text pages keep their Unicode words here too.
+    if (!glyphsVerified(page)) continue;
     const family = pageFamily(page);
     const apply = () => spans.forEach((s) => { s.textContent = s.dataset.code!; s.style.fontFamily = `"${family}"`; s.classList.add('glyph'); });
     if (isConfirmed(family)) { apply(); continue; }

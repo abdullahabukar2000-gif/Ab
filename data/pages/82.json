@@ -1,0 +1,936 @@
+{
+  "page": 82,
+  "mushaf": "qcf_v2",
+  "lines": [
+    {
+      "line": 1,
+      "type": "text",
+      "centered": false,
+      "words": [
+        {
+          "code": "ﱁﱂ",
+          "uthmani": "۞ وَٱلْمُحْصَنَـٰتُ",
+          "verseKey": "4:24",
+          "pos": 1,
+          "type": "word"
+        },
+        {
+          "code": "ﱃ",
+          "uthmani": "مِنَ",
+          "verseKey": "4:24",
+          "pos": 2,
+          "type": "word"
+        },
+        {
+          "code": "ﱄ",
+          "uthmani": "ٱلنِّسَآءِ",
+          "verseKey": "4:24",
+          "pos": 3,
+          "type": "word"
+        },
+        {
+          "code": "ﱅ",
+          "uthmani": "إِلَّا",
+          "verseKey": "4:24",
+          "pos": 4,
+          "type": "word"
+        },
+        {
+          "code": "ﱆ",
+          "uthmani": "مَا",
+          "verseKey": "4:24",
+          "pos": 5,
+          "type": "word"
+        },
+        {
+          "code": "ﱇ",
+          "uthmani": "مَلَكَتْ",
+          "verseKey": "4:24",
+          "pos": 6,
+          "type": "word"
+        },
+        {
+          "code": "ﱈﱉ",
+          "uthmani": "أَيْمَـٰنُكُمْ ۖ",
+          "verseKey": "4:24",
+          "pos": 7,
+          "type": "word"
+        }
+      ]
+    },
+    {
+      "line": 2,
+      "type": "text",
+      "centered": false,
+      "words": [
+        {
+          "code": "ﱊ",
+          "uthmani": "كِتَـٰبَ",
+          "verseKey": "4:24",
+          "pos": 8,
+          "type": "word"
+        },
+        {
+          "code": "ﱋ",
+          "uthmani": "ٱللَّهِ",
+          "verseKey": "4:24",
+          "pos": 9,
+          "type": "word"
+        },
+        {
+          "code": "ﱌﱍ",
+          "uthmani": "عَلَيْكُمْ ۚ",
+          "verseKey": "4:24",
+          "pos": 10,
+          "type": "word"
+        },
+        {
+          "code": "ﱎ",
+          "uthmani": "وَأُحِلَّ",
+          "verseKey": "4:24",
+          "pos": 11,
+          "type": "word"
+        },
+        {
+          "code": "ﱏ",
+          "uthmani": "لَكُم",
+          "verseKey": "4:24",
+          "pos": 12,
+          "type": "word"
+        },
+        {
+          "code": "ﱐ",
+          "uthmani": "مَّا",
+          "verseKey": "4:24",
+          "pos": 13,
+          "type": "word"
+        },
+        {
+          "code": "ﱑ",
+          "uthmani": "وَرَآءَ",
+          "verseKey": "4:24",
+          "pos": 14,
+          "type": "word"
+        },
+        {
+          "code": "ﱒ",
+          "uthmani": "ذَٰلِكُمْ",
+          "verseKey": "4:24",
+          "pos": 15,
+          "type": "word"
+        },
+        {
+          "code": "ﱓ",
+          "uthmani": "أَن",
+          "verseKey": "4:24",
+          "pos": 16,
+          "type": "word"
+        },
+        {
+          "code": "ﱔ",
+          "uthmani": "تَبْتَغُوا۟",
+          "verseKey": "4:24",
+          "pos": 17,
+          "type": "word"
+        }
+      ]
+    },
+    {
+      "line": 3,
+      "type": "text",
+      "centered": false,
+      "words": [
+        {
+          "code": "ﱕ",
+          "uthmani": "بِأَمْوَٰلِكُم",
+          "verseKey": "4:24",
+          "pos": 18,
+          "type": "word"
+        },
+        {
+          "code": "ﱖ",
+          "uthmani": "مُّحْصِنِينَ",
+          "verseKey": "4:24",
+          "pos": 19,
+          "type": "word"
+        },
+        {
+          "code": "ﱗ",
+          "uthmani": "غَيْرَ",
+          "verseKey": "4:24",
+          "pos": 20,
+          "type": "word"
+        },
+        {
+          "code": "ﱘﱙ",
+          "uthmani": "مُسَـٰفِحِينَ ۚ",
+          "verseKey": "4:24",
+          "pos": 21,
+          "type": "word"
+        },
+        {
+          "code": "ﱚ",
+          "uthmani": "فَمَا",
+          "verseKey": "4:24",
+          "pos": 22,
+          "type": "word"
+        },
+        {
+          "code": "ﱛ",
+          "uthmani": "ٱسْتَمْتَعْتُم",
+          "verseKey": "4:24",
+          "pos": 23,
+          "type": "word"
+        },
+        {
+          "code": "ﱜ",
+          "uthmani": "بِهِۦ",
+          "verseKey": "4:24",
+          "pos": 24,
+          "type": "word"
+        }
+      ]
+    },
+    {
+      "line": 4,
+      "type": "text",
+      "centered": false,
+      "words": [
+        {
+          "code": "ﱝ",
+          "uthmani": "مِنْهُنَّ",
+          "verseKey": "4:24",
+          "pos": 25,
+          "type": "word"
+        },
+        {
+          "code": "ﱞ",
+          "uthmani": "فَـَٔاتُوهُنَّ",
+          "verseKey": "4:24",
+          "pos": 26,
+          "type": "word"
+        },
+        {
+          "code": "ﱟ",
+          "uthmani": "أُجُورَهُنَّ",
+          "verseKey": "4:24",
+          "pos": 27,
+          "type": "word"
+        },
+        {
+          "code": "ﱠﱡ",
+          "uthmani": "فَرِيضَةًۭ ۚ",
+          "verseKey": "4:24",
+          "pos": 28,
+          "type": "word"
+        },
+        {
+          "code": "ﱢ",
+          "uthmani": "وَلَا",
+          "verseKey": "4:24",
+          "pos": 29,
+          "type": "word"
+        },
+        {
+          "code": "ﱣ",
+          "uthmani": "جُنَاحَ",
+          "verseKey": "4:24",
+          "pos": 30,
+          "type": "word"
+        },
+        {
+          "code": "ﱤ",
+          "uthmani": "عَلَيْكُمْ",
+          "verseKey": "4:24",
+          "pos": 31,
+          "type": "word"
+        }
+      ]
+    },
+    {
+      "line": 5,
+      "type": "text",
+      "centered": false,
+      "words": [
+        {
+          "code": "ﱥ",
+          "uthmani": "فِيمَا",
+          "verseKey": "4:24",
+          "pos": 32,
+          "type": "word"
+        },
+        {
+          "code": "ﱦ",
+          "uthmani": "تَرَٰضَيْتُم",
+          "verseKey": "4:24",
+          "pos": 33,
+          "type": "word"
+        },
+        {
+          "code": "ﱧ",
+          "uthmani": "بِهِۦ",
+          "verseKey": "4:24",
+          "pos": 34,
+          "type": "word"
+        },
+        {
+          "code": "ﱨ",
+          "uthmani": "مِنۢ",
+          "verseKey": "4:24",
+          "pos": 35,
+          "type": "word"
+        },
+        {
+          "code": "ﱩ",
+          "uthmani": "بَعْدِ",
+          "verseKey": "4:24",
+          "pos": 36,
+          "type": "word"
+        },
+        {
+          "code": "ﱪﱫ",
+          "uthmani": "ٱلْفَرِيضَةِ ۚ",
+          "verseKey": "4:24",
+          "pos": 37,
+          "type": "word"
+        },
+        {
+          "code": "ﱬ",
+          "uthmani": "إِنَّ",
+          "verseKey": "4:24",
+          "pos": 38,
+          "type": "word"
+        },
+        {
+          "code": "ﱭ",
+          "uthmani": "ٱللَّهَ",
+          "verseKey": "4:24",
+          "pos": 39,
+          "type": "word"
+        },
+        {
+          "code": "ﱮ",
+          "uthmani": "كَانَ",
+          "verseKey": "4:24",
+          "pos": 40,
+          "type": "word"
+        },
+        {
+          "code": "ﱯ",
+          "uthmani": "عَلِيمًا",
+          "verseKey": "4:24",
+          "pos": 41,
+          "type": "word"
+        }
+      ]
+    },
+    {
+      "line": 6,
+      "type": "text",
+      "centered": false,
+      "words": [
+        {
+          "code": "ﱰ",
+          "uthmani": "حَكِيمًۭا",
+          "verseKey": "4:24",
+          "pos": 42,
+          "type": "word"
+        },
+        {
+          "code": "ﱱ",
+          "uthmani": "٢٤",
+          "verseKey": "4:24",
+          "pos": 43,
+          "type": "end"
+        },
+        {
+          "code": "ﱲ",
+          "uthmani": "وَمَن",
+          "verseKey": "4:25",
+          "pos": 1,
+          "type": "word"
+        },
+        {
+          "code": "ﱳ",
+          "uthmani": "لَّمْ",
+          "verseKey": "4:25",
+          "pos": 2,
+          "type": "word"
+        },
+        {
+          "code": "ﱴ",
+          "uthmani": "يَسْتَطِعْ",
+          "verseKey": "4:25",
+          "pos": 3,
+          "type": "word"
+        },
+        {
+          "code": "ﱵ",
+          "uthmani": "مِنكُمْ",
+          "verseKey": "4:25",
+          "pos": 4,
+          "type": "word"
+        },
+        {
+          "code": "ﱶ",
+          "uthmani": "طَوْلًا",
+          "verseKey": "4:25",
+          "pos": 5,
+          "type": "word"
+        },
+        {
+          "code": "ﱷ",
+          "uthmani": "أَن",
+          "verseKey": "4:25",
+          "pos": 6,
+          "type": "word"
+        },
+        {
+          "code": "ﱸ",
+          "uthmani": "يَنكِحَ",
+          "verseKey": "4:25",
+          "pos": 7,
+          "type": "word"
+        }
+      ]
+    },
+    {
+      "line": 7,
+      "type": "text",
+      "centered": false,
+      "words": [
+        {
+          "code": "ﱹ",
+          "uthmani": "ٱلْمُحْصَنَـٰتِ",
+          "verseKey": "4:25",
+          "pos": 8,
+          "type": "word"
+        },
+        {
+          "code": "ﱺ",
+          "uthmani": "ٱلْمُؤْمِنَـٰتِ",
+          "verseKey": "4:25",
+          "pos": 9,
+          "type": "word"
+        },
+        {
+          "code": "ﱻ",
+          "uthmani": "فَمِن",
+          "verseKey": "4:25",
+          "pos": 10,
+          "type": "word"
+        },
+        {
+          "code": "ﱼ",
+          "uthmani": "مَّا",
+          "verseKey": "4:25",
+          "pos": 11,
+          "type": "word"
+        },
+        {
+          "code": "ﱽ",
+          "uthmani": "مَلَكَتْ",
+          "verseKey": "4:25",
+          "pos": 12,
+          "type": "word"
+        },
+        {
+          "code": "ﱾ",
+          "uthmani": "أَيْمَـٰنُكُم",
+          "verseKey": "4:25",
+          "pos": 13,
+          "type": "word"
+        },
+        {
+          "code": "ﱿ",
+          "uthmani": "مِّن",
+          "verseKey": "4:25",
+          "pos": 14,
+          "type": "word"
+        }
+      ]
+    },
+    {
+      "line": 8,
+      "type": "text",
+      "centered": false,
+      "words": [
+        {
+          "code": "ﲀ",
+          "uthmani": "فَتَيَـٰتِكُمُ",
+          "verseKey": "4:25",
+          "pos": 15,
+          "type": "word"
+        },
+        {
+          "code": "ﲁﲂ",
+          "uthmani": "ٱلْمُؤْمِنَـٰتِ ۚ",
+          "verseKey": "4:25",
+          "pos": 16,
+          "type": "word"
+        },
+        {
+          "code": "ﲃ",
+          "uthmani": "وَٱللَّهُ",
+          "verseKey": "4:25",
+          "pos": 17,
+          "type": "word"
+        },
+        {
+          "code": "ﲄ",
+          "uthmani": "أَعْلَمُ",
+          "verseKey": "4:25",
+          "pos": 18,
+          "type": "word"
+        },
+        {
+          "code": "ﲅﲆ",
+          "uthmani": "بِإِيمَـٰنِكُم ۚ",
+          "verseKey": "4:25",
+          "pos": 19,
+          "type": "word"
+        },
+        {
+          "code": "ﲇ",
+          "uthmani": "بَعْضُكُم",
+          "verseKey": "4:25",
+          "pos": 20,
+          "type": "word"
+        },
+        {
+          "code": "ﲈ",
+          "uthmani": "مِّنۢ",
+          "verseKey": "4:25",
+          "pos": 21,
+          "type": "word"
+        }
+      ]
+    },
+    {
+      "line": 9,
+      "type": "text",
+      "centered": false,
+      "words": [
+        {
+          "code": "ﲉﲊ",
+          "uthmani": "بَعْضٍۢ ۚ",
+          "verseKey": "4:25",
+          "pos": 22,
+          "type": "word"
+        },
+        {
+          "code": "ﲋ",
+          "uthmani": "فَٱنكِحُوهُنَّ",
+          "verseKey": "4:25",
+          "pos": 23,
+          "type": "word"
+        },
+        {
+          "code": "ﲌ",
+          "uthmani": "بِإِذْنِ",
+          "verseKey": "4:25",
+          "pos": 24,
+          "type": "word"
+        },
+        {
+          "code": "ﲍ",
+          "uthmani": "أَهْلِهِنَّ",
+          "verseKey": "4:25",
+          "pos": 25,
+          "type": "word"
+        },
+        {
+          "code": "ﲎ",
+          "uthmani": "وَءَاتُوهُنَّ",
+          "verseKey": "4:25",
+          "pos": 26,
+          "type": "word"
+        },
+        {
+          "code": "ﲏ",
+          "uthmani": "أُجُورَهُنَّ",
+          "verseKey": "4:25",
+          "pos": 27,
+          "type": "word"
+        }
+      ]
+    },
+    {
+      "line": 10,
+      "type": "text",
+      "centered": false,
+      "words": [
+        {
+          "code": "ﲐ",
+          "uthmani": "بِٱلْمَعْرُوفِ",
+          "verseKey": "4:25",
+          "pos": 28,
+          "type": "word"
+        },
+        {
+          "code": "ﲑ",
+          "uthmani": "مُحْصَنَـٰتٍ",
+          "verseKey": "4:25",
+          "pos": 29,
+          "type": "word"
+        },
+        {
+          "code": "ﲒ",
+          "uthmani": "غَيْرَ",
+          "verseKey": "4:25",
+          "pos": 30,
+          "type": "word"
+        },
+        {
+          "code": "ﲓ",
+          "uthmani": "مُسَـٰفِحَـٰتٍۢ",
+          "verseKey": "4:25",
+          "pos": 31,
+          "type": "word"
+        },
+        {
+          "code": "ﲔ",
+          "uthmani": "وَلَا",
+          "verseKey": "4:25",
+          "pos": 32,
+          "type": "word"
+        },
+        {
+          "code": "ﲕ",
+          "uthmani": "مُتَّخِذَٰتِ",
+          "verseKey": "4:25",
+          "pos": 33,
+          "type": "word"
+        }
+      ]
+    },
+    {
+      "line": 11,
+      "type": "text",
+      "centered": false,
+      "words": [
+        {
+          "code": "ﲖﲗ",
+          "uthmani": "أَخْدَانٍۢ ۚ",
+          "verseKey": "4:25",
+          "pos": 34,
+          "type": "word"
+        },
+        {
+          "code": "ﲘ",
+          "uthmani": "فَإِذَآ",
+          "verseKey": "4:25",
+          "pos": 35,
+          "type": "word"
+        },
+        {
+          "code": "ﲙ",
+          "uthmani": "أُحْصِنَّ",
+          "verseKey": "4:25",
+          "pos": 36,
+          "type": "word"
+        },
+        {
+          "code": "ﲚ",
+          "uthmani": "فَإِنْ",
+          "verseKey": "4:25",
+          "pos": 37,
+          "type": "word"
+        },
+        {
+          "code": "ﲛ",
+          "uthmani": "أَتَيْنَ",
+          "verseKey": "4:25",
+          "pos": 38,
+          "type": "word"
+        },
+        {
+          "code": "ﲜ",
+          "uthmani": "بِفَـٰحِشَةٍۢ",
+          "verseKey": "4:25",
+          "pos": 39,
+          "type": "word"
+        },
+        {
+          "code": "ﲝ",
+          "uthmani": "فَعَلَيْهِنَّ",
+          "verseKey": "4:25",
+          "pos": 40,
+          "type": "word"
+        },
+        {
+          "code": "ﲞ",
+          "uthmani": "نِصْفُ",
+          "verseKey": "4:25",
+          "pos": 41,
+          "type": "word"
+        }
+      ]
+    },
+    {
+      "line": 12,
+      "type": "text",
+      "centered": false,
+      "words": [
+        {
+          "code": "ﲟ",
+          "uthmani": "مَا",
+          "verseKey": "4:25",
+          "pos": 42,
+          "type": "word"
+        },
+        {
+          "code": "ﲠ",
+          "uthmani": "عَلَى",
+          "verseKey": "4:25",
+          "pos": 43,
+          "type": "word"
+        },
+        {
+          "code": "ﲡ",
+          "uthmani": "ٱلْمُحْصَنَـٰتِ",
+          "verseKey": "4:25",
+          "pos": 44,
+          "type": "word"
+        },
+        {
+          "code": "ﲢ",
+          "uthmani": "مِنَ",
+          "verseKey": "4:25",
+          "pos": 45,
+          "type": "word"
+        },
+        {
+          "code": "ﲣﲤ",
+          "uthmani": "ٱلْعَذَابِ ۚ",
+          "verseKey": "4:25",
+          "pos": 46,
+          "type": "word"
+        },
+        {
+          "code": "ﲥ",
+          "uthmani": "ذَٰلِكَ",
+          "verseKey": "4:25",
+          "pos": 47,
+          "type": "word"
+        },
+        {
+          "code": "ﲦ",
+          "uthmani": "لِمَنْ",
+          "verseKey": "4:25",
+          "pos": 48,
+          "type": "word"
+        },
+        {
+          "code": "ﲧ",
+          "uthmani": "خَشِىَ",
+          "verseKey": "4:25",
+          "pos": 49,
+          "type": "word"
+        }
+      ]
+    },
+    {
+      "line": 13,
+      "type": "text",
+      "centered": false,
+      "words": [
+        {
+          "code": "ﲨ",
+          "uthmani": "ٱلْعَنَتَ",
+          "verseKey": "4:25",
+          "pos": 50,
+          "type": "word"
+        },
+        {
+          "code": "ﲩﲪ",
+          "uthmani": "مِنكُمْ ۚ",
+          "verseKey": "4:25",
+          "pos": 51,
+          "type": "word"
+        },
+        {
+          "code": "ﲫ",
+          "uthmani": "وَأَن",
+          "verseKey": "4:25",
+          "pos": 52,
+          "type": "word"
+        },
+        {
+          "code": "ﲬ",
+          "uthmani": "تَصْبِرُوا۟",
+          "verseKey": "4:25",
+          "pos": 53,
+          "type": "word"
+        },
+        {
+          "code": "ﲭ",
+          "uthmani": "خَيْرٌۭ",
+          "verseKey": "4:25",
+          "pos": 54,
+          "type": "word"
+        },
+        {
+          "code": "ﲮﲯ",
+          "uthmani": "لَّكُمْ ۗ",
+          "verseKey": "4:25",
+          "pos": 55,
+          "type": "word"
+        },
+        {
+          "code": "ﲰ",
+          "uthmani": "وَٱللَّهُ",
+          "verseKey": "4:25",
+          "pos": 56,
+          "type": "word"
+        },
+        {
+          "code": "ﲱ",
+          "uthmani": "غَفُورٌۭ",
+          "verseKey": "4:25",
+          "pos": 57,
+          "type": "word"
+        },
+        {
+          "code": "ﲲ",
+          "uthmani": "رَّحِيمٌۭ",
+          "verseKey": "4:25",
+          "pos": 58,
+          "type": "word"
+        },
+        {
+          "code": "ﲳ",
+          "uthmani": "٢٥",
+          "verseKey": "4:25",
+          "pos": 59,
+          "type": "end"
+        }
+      ]
+    },
+    {
+      "line": 14,
+      "type": "text",
+      "centered": false,
+      "words": [
+        {
+          "code": "ﲴ",
+          "uthmani": "يُرِيدُ",
+          "verseKey": "4:26",
+          "pos": 1,
+          "type": "word"
+        },
+        {
+          "code": "ﲵ",
+          "uthmani": "ٱللَّهُ",
+          "verseKey": "4:26",
+          "pos": 2,
+          "type": "word"
+        },
+        {
+          "code": "ﲶ",
+          "uthmani": "لِيُبَيِّنَ",
+          "verseKey": "4:26",
+          "pos": 3,
+          "type": "word"
+        },
+        {
+          "code": "ﲷ",
+          "uthmani": "لَكُمْ",
+          "verseKey": "4:26",
+          "pos": 4,
+          "type": "word"
+        },
+        {
+          "code": "ﲸ",
+          "uthmani": "وَيَهْدِيَكُمْ",
+          "verseKey": "4:26",
+          "pos": 5,
+          "type": "word"
+        },
+        {
+          "code": "ﲹ",
+          "uthmani": "سُنَنَ",
+          "verseKey": "4:26",
+          "pos": 6,
+          "type": "word"
+        },
+        {
+          "code": "ﲺ",
+          "uthmani": "ٱلَّذِينَ",
+          "verseKey": "4:26",
+          "pos": 7,
+          "type": "word"
+        }
+      ]
+    },
+    {
+      "line": 15,
+      "type": "text",
+      "centered": false,
+      "words": [
+        {
+          "code": "ﲻ",
+          "uthmani": "مِن",
+          "verseKey": "4:26",
+          "pos": 8,
+          "type": "word"
+        },
+        {
+          "code": "ﲼ",
+          "uthmani": "قَبْلِكُمْ",
+          "verseKey": "4:26",
+          "pos": 9,
+          "type": "word"
+        },
+        {
+          "code": "ﲽ",
+          "uthmani": "وَيَتُوبَ",
+          "verseKey": "4:26",
+          "pos": 10,
+          "type": "word"
+        },
+        {
+          "code": "ﲾﲿ",
+          "uthmani": "عَلَيْكُمْ ۗ",
+          "verseKey": "4:26",
+          "pos": 11,
+          "type": "word"
+        },
+        {
+          "code": "ﳀ",
+          "uthmani": "وَٱللَّهُ",
+          "verseKey": "4:26",
+          "pos": 12,
+          "type": "word"
+        },
+        {
+          "code": "ﳁ",
+          "uthmani": "عَلِيمٌ",
+          "verseKey": "4:26",
+          "pos": 13,
+          "type": "word"
+        },
+        {
+          "code": "ﳂ",
+          "uthmani": "حَكِيمٌۭ",
+          "verseKey": "4:26",
+          "pos": 14,
+          "type": "word"
+        },
+        {
+          "code": "ﳃ",
+          "uthmani": "٢٦",
+          "verseKey": "4:26",
+          "pos": 15,
+          "type": "end"
+        }
+      ]
+    }
+  ],
+  "verses": [
+    "4:24",
+    "4:25",
+    "4:26"
+  ],
+  "source": "github.com/zonetecde/mushaf-layout (community copy, not official)"
+}

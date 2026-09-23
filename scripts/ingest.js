@@ -42,6 +42,9 @@ const SHARED_GLYPHS = new Set([0xfb50, ...Array.from({ length: 0xfd79 - 0xfd5a +
 // The basmalah as drawn by the QCF V2 basmalah font (QCF2BSML).
 const BASMALAH_CODE = '\ufb51\ufb52\ufb53';
 const LINES_PER_PAGE = 15;
+// The opening two pages are set in 8 lines inside their ornament, as in print.
+const LINES_ON_PAGE = { 1: 8, 2: 8 };
+const linesOn = (page) => LINES_ON_PAGE[page] ?? LINES_PER_PAGE;
 const TOTAL_PAGES = 604;
 
 // Surahs that open without a separate basmalah line: Al-Fatihah (its basmalah
@@ -55,6 +58,10 @@ const CENTERED_LINES = {
   1: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
   2: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
 };
+
+const LOCAL_VERSE_COUNTS = Object.fromEntries(
+  JSON.parse(readFileSync(join(ROOT, 'data', 'chapters.json'), 'utf8')).chapters.map((c) => [c.id, c.verses_count]),
+);
 
 // ---------------------------------------------------------------- config
 
@@ -140,6 +147,23 @@ const toArabicDigits = (n) => String(n).replace(/\d/g, (d) => ARABIC_DIGITS[d]);
 
 // The GitHub dataset glues each ayah's end marker onto its last word
 // ("word ١٩" / "glyph glyph"). Split it back out so words match the API's shape.
+/**
+ * Line positions the GitHub copy gets wrong, corrected here and shown only as
+ * typed text (the corrections are inferred, not confirmed by a second source):
+ *   207  a stray "surah 9" heading on line 1 pushes At-Tawbah 9:123-129 down one
+ *        line; Yunus's heading belongs at the foot (208 opens with its basmalah).
+ *   586  At-Takwir's heading and basmalah are missing from the top and the text
+ *        sits two lines high; Al-Infitar's heading ends the page (587 opens with
+ *        its basmalah).
+ *   590  the same for Al-Buruj, with At-Tariq's heading at the foot (591 opens
+ *        with its basmalah).
+ */
+const SOURCE_FIXES = {
+  207: { shift: -1, drop: [1], headings: { 15: ['surah_name', 10] }, note: 'line positions corrected (a misplaced heading in the source)' },
+  586: { shift: 2, headings: { 1: ['surah_name', 81], 2: ['basmalah', 81], 15: ['surah_name', 82] }, note: 'line positions corrected (missing heading in the source)' },
+  590: { shift: 2, headings: { 1: ['surah_name', 85], 2: ['basmalah', 85], 15: ['surah_name', 86] }, note: 'line positions corrected (missing heading in the source)' },
+};
+
 async function fetchPageWordsGithub(page) {
   const res = await fetch(`${GITHUB_BASE}/page-${String(page).padStart(3, '0')}.json`);
   if (!res.ok) fail(`page ${page}: GitHub dataset returned HTTP ${res.status}`);
@@ -147,6 +171,18 @@ async function fetchPageWordsGithub(page) {
   if (body.page !== page) fail(`page ${page}: GitHub file says it is page ${body.page}`);
   const words = [];
   const labels = {};
+  const fix = SOURCE_FIXES[page];
+  if (fix) {
+    body.lines = body.lines
+      .filter((l) => !(fix.drop ?? []).includes(l.line))
+      .map((l) => ({ ...l, line: l.line + fix.shift }));
+    for (const [line, [type, surah]] of Object.entries(fix.headings)) {
+      body.lines.push(type === 'surah_name'
+        ? { line: Number(line), type: 'surah-header', surah: String(surah) }
+        : { line: Number(line), type: 'basmala', qpcV2: BASMALAH_CODE });
+    }
+    body.lines.sort((a, b) => a.line - b.line);
+  }
   for (const l of body.lines ?? []) {
     if (l.type === 'surah-header') { labels[l.line] = { type: 'surah_name', surah: Number(l.surah), name: l.text }; continue; }
     if (l.type === 'basmala') {
@@ -172,7 +208,7 @@ async function fetchPageWordsGithub(page) {
       words.push({ code: glyphs[1], uthmani: number, verseKey, pos: pos + 1, type: 'end', line: l.line });
     }
   }
-  return { words, labels };
+  return { words, labels, fix };
 }
 
 async function pagesForSurah(api, surah) {
@@ -184,9 +220,16 @@ async function pagesForSurah(api, surah) {
 
 // ---------------------------------------------------------------- layout
 
-function fail(message) {
+/**
+ * Stop with a message. `glyphs` failures mean the page's glyph codes can't be
+ * trusted (a code missing from the font, used twice, or not what the listing
+ * says) while its words and lines are fine; with --allow-typed such a page is
+ * kept but shown only as typed Uthmani text, never in the page font.
+ */
+function fail(message, kind = 'structure') {
   const err = new Error(message);
   err.ingest = true;
+  err.kind = kind;
   throw err;
 }
 
@@ -195,12 +238,13 @@ function verseParts(key) {
   return { surah: s, ayah: a };
 }
 
-function buildLayout(page, words, verseCounts, labels = null, surahNames = null) {
+function buildLayout(page, words, verseCounts, labels = null, surahNames = null, { skipGlyphChecks = false } = {}) {
   if (!words.length) fail(`page ${page}: API returned no words`);
 
+  const total = linesOn(page);
   const byLine = new Map();
   for (const w of words) {
-    if (!Number.isInteger(w.line) || w.line < 1 || w.line > LINES_PER_PAGE) {
+    if (!Number.isInteger(w.line) || w.line < 1 || w.line > total) {
       fail(`page ${page}: word ${w.verseKey}#${w.pos} has line_number ${w.line}`);
     }
     if (!w.code) fail(`page ${page}: word ${w.verseKey}#${w.pos} has no code_v2 glyph`);
@@ -212,7 +256,7 @@ function buildLayout(page, words, verseCounts, labels = null, surahNames = null)
   // from the ayah-1 that follows them; anything else is an unexplained gap.
   const centred = new Set(CENTERED_LINES[page] ?? []);
   const lines = [];
-  for (let n = 1; n <= LINES_PER_PAGE; n++) {
+  for (let n = 1; n <= total; n++) {
     const lineWords = byLine.get(n);
     if (lineWords) {
       lines.push({
@@ -226,35 +270,40 @@ function buildLayout(page, words, verseCounts, labels = null, surahNames = null)
     lines.push({ line: n, type: null, centered: true, words: [] });
   }
 
-  // Fill in the gaps, walking each run of empty lines against the surah that opens after it.
+  // Fill in the gaps. An empty run is a surah's opening: its heading and
+  // basmalah before its first ayah, or split across a page turn (heading at
+  // the foot of one page, basmalah at the top of the next).
+  const counts = verseCounts ?? LOCAL_VERSE_COUNTS;
   for (let i = 0; i < lines.length; ) {
     if (lines[i].type !== null) { i++; continue; }
     let j = i;
     while (j < lines.length && lines[j].type === null) j++;
     const gap = j - i;
     const after = lines[j]?.words[0];
-    const opens = after && verseParts(after.verseKey).ayah === 1 && after.pos === 1 ? verseParts(after.verseKey).surah : null;
-    // Empty lines at the foot of a page are the next surah's heading, but only
-    // if the page really ends on the last ayah of its surah.
-    const last = words[words.length - 1];
-    const lastV = verseParts(last.verseKey);
-    const endsSurah = last.type === 'end' && (verseCounts
-      ? lastV.ayah === verseCounts[lastV.surah]
-      : labels?.[i + 1]?.surah === lastV.surah + 1);
-    const nextSurahGuess = opens ?? (!after && endsSurah ? lastV.surah + 1 : null);
-    const expected = nextSurahGuess && !NO_BASMALAH_LINE.has(nextSurahGuess) ? ['surah_name', 'basmalah'] : ['surah_name'];
-    if (!nextSurahGuess) {
-      fail(`page ${page}: lines ${i + 1}-${j} are empty and no surah opens after them`);
+    const before = [...lines.slice(0, i)].reverse().find((l) => l.words.length)?.words.at(-1);
+    let surah = null;
+    let kinds = null;
+    if (after && verseParts(after.verseKey).ayah === 1 && after.pos === 1) {
+      surah = verseParts(after.verseKey).surah;
+      const both = NO_BASMALAH_LINE.has(surah) ? ['surah_name'] : ['surah_name', 'basmalah'];
+      if (gap === both.length) kinds = both;
+      // Only the basmalah here: the heading ended the previous page.
+      else if (gap === 1 && i === 0 && !NO_BASMALAH_LINE.has(surah)) kinds = ['basmalah'];
+    } else if (!after && before) {
+      const v = verseParts(before.verseKey);
+      if (before.type === 'end' && v.ayah === counts[v.surah]) {
+        surah = v.surah + 1;
+        // The heading at the foot of the page, and its basmalah too if there's room.
+        kinds = (NO_BASMALAH_LINE.has(surah) ? ['surah_name'] : ['surah_name', 'basmalah']).slice(0, gap);
+        if (kinds.length !== gap) kinds = null;
+      }
     }
-    // At the foot of a page the heading can appear alone (basmalah on the next page) or with its basmalah.
-    if (gap !== expected.length && !(after === undefined && gap <= expected.length)) {
-      fail(`page ${page}: lines ${i + 1}-${j} (${gap} empty) before surah ${nextSurahGuess}; expected ${expected.length}`);
-    }
+    if (!kinds) fail(`page ${page}: lines ${i + 1}-${j} are empty and don't fit a surah opening`);
     for (let k = 0; k < gap; k++) {
       const l = lines[i + k];
-      l.type = expected[k];
-      l.surah = nextSurahGuess;
-      if (l.type === 'surah_name') l.name = surahNames?.[nextSurahGuess] ?? labels?.[l.line]?.name ?? null;
+      l.type = kinds[k];
+      l.surah = surah;
+      if (l.type === 'surah_name') l.name = surahNames?.[surah] ?? labels?.[l.line]?.name ?? null;
       if (l.type === 'basmalah') l.code = BASMALAH_CODE;
     }
     i = j;
@@ -263,15 +312,22 @@ function buildLayout(page, words, verseCounts, labels = null, surahNames = null)
   // A source that labels its own heading lines must agree with what we worked out.
   for (const [n, label] of Object.entries(labels ?? {})) {
     const l = lines[Number(n) - 1];
-    if (l.type !== label.type || (label.surah && l.surah !== label.surah)) {
+    // Only the kind of line is compared: the source sometimes names the wrong
+    // surah on a heading at the foot of a page (page 76 says Āl ʿImrān before
+    // An-Nisāʾ); the surah is worked out from the ayahs around it instead.
+    if (l.type !== label.type) {
       fail(`page ${page}: line ${n} is labelled ${label.type} by the source but looks like ${l.type}`);
     }
   }
 
-  // Sanity: glyph codes on a page run in one unbroken sequence.
-  const codes = words.flatMap((w) => [...w.code].map((c) => c.codePointAt(0)));
-  for (let k = 1; k < codes.length; k++) {
-    if (codes[k] !== codes[k - 1] + 1) fail(`page ${page}: glyph codes jump from U+${codes[k - 1].toString(16)} to U+${codes[k].toString(16)}`);
+  // Sanity: one font can't draw two different words with the same code.
+  const seen = new Map();
+  if (!skipGlyphChecks) for (const w of words) {
+    for (const c of w.code) {
+      const other = seen.get(c);
+      if (other) fail(`page ${page}: code U+${c.codePointAt(0).toString(16)} is used by both ${other} and ${w.verseKey}#${w.pos}`, 'glyphs');
+      seen.set(c, `${w.verseKey}#${w.pos}`);
+    }
   }
 
   // Sanity: words must run in reading order across the whole page.
@@ -286,7 +342,7 @@ function buildLayout(page, words, verseCounts, labels = null, surahNames = null)
     if (words[k].line < words[k - 1].line) fail(`page ${page}: line numbers go backwards at ${words[k].verseKey}#${words[k].pos}`);
   }
 
-  if (lines.length !== LINES_PER_PAGE) fail(`page ${page}: built ${lines.length} lines, expected ${LINES_PER_PAGE}`);
+  if (lines.length !== total) fail(`page ${page}: built ${lines.length} lines, expected ${total}`);
 
   const verses = [...new Set(words.map((w) => w.verseKey))];
   return { page, mushaf: 'qcf_v2', lines, verses };
@@ -342,16 +398,66 @@ async function kfgqpcAyahs(page) {
   return ayahListing.get(page) ?? [];
 }
 
+/**
+ * Each ayah's codes must match the Complex's listing. Rows are matched by
+ * their first code, since the listing occasionally drops or repeats an ayah at
+ * a page edge. The listing has no data ("None") for some opening-letter
+ * ayahs, and leaves out 2:1's end marker; those pass on the font check alone.
+ * Returns the ayahs the listing couldn't confirm.
+ */
 async function checkAgainstKfgqpc(layout) {
   const { page } = layout;
   const byAyah = new Map();
   for (const l of layout.lines) for (const w of l.words) byAyah.set(w.verseKey, (byAyah.get(w.verseKey) ?? '') + w.code);
-  const ours = [...byAyah.entries()];
-  const theirs = await kfgqpcAyahs(page);
-  if (ours.length !== theirs.length) fail(`page ${page}: ${ours.length} ayahs here, King Fahd listing has ${theirs.length}`);
-  ours.forEach(([key, codes], i) => {
-    if (codes !== theirs[i]) fail(`page ${page}: ayah ${key} glyphs differ from the King Fahd listing`);
-  });
+  const rows = await kfgqpcAyahs(page);
+  const unconfirmed = [];
+  for (const [key, codes] of byAyah) {
+    const row = rows.find((r) => r[0] === codes[0]);
+    if (!row) { unconfirmed.push(key); continue; }
+    if (row === codes) continue;
+    if (codes.startsWith(row) && [...codes.slice(row.length)].length === 1 && key === '2:1') continue;
+    fail(`page ${page}: ayah ${key} glyphs differ from the King Fahd listing`, 'glyphs');
+  }
+  return unconfirmed;
+}
+
+/**
+ * The GitHub copy sometimes joins two words into one entry ("بَعْدَ مَا") and
+ * drops a glyph, which shifts every later word of the ayah onto the wrong
+ * glyph. Where the listing has exactly one more code than the entry, split the
+ * joined word and take the codes for the whole ayah from the listing.
+ */
+async function repairJoinedWords(page, words) {
+  const rows = await kfgqpcAyahs(page);
+  const out = [];
+  const byAyah = new Map();
+  for (const w of words) { if (!byAyah.has(w.verseKey)) byAyah.set(w.verseKey, []); byAyah.get(w.verseKey).push(w); }
+  for (const [key, ws] of byAyah) {
+    const codes = ws.map((w) => w.code).join('');
+    const row = rows.find((r) => r[0] === codes[0]);
+    const joined = ws.filter((w) => w.type === 'word' && [...w.code].length === 1 && w.uthmani.split(' ').filter((t) => /[\u0621-\u064A\u0671]/.test(t)).length === 2);
+    if (!row || row === codes || row === 'None' || joined.length !== [...row].length - [...codes].length) { out.push(...ws); continue; }
+    const fixed = [];
+    for (const w of ws) {
+      if (!joined.includes(w)) { fixed.push({ ...w }); continue; }
+      const [a, b] = w.uthmani.split(' ');
+      fixed.push({ ...w, uthmani: a }, { ...w, uthmani: b });
+    }
+    const listing = [...row];
+    let at = 0;
+    fixed.forEach((w, n) => {
+      const width = joined.some((j) => j.pos === w.pos) ? 1 : [...w.code].length;
+      w.code = listing.slice(at, at + width).join('');
+      at += width;
+      if (w.type === 'word') w.pos = n + 1;
+    });
+    const end = fixed.find((w) => w.type === 'end');
+    if (end) end.pos = fixed.filter((w) => w.type === 'word').length + 1;
+    if (at !== listing.length) fail(`page ${page}: couldn't repair ayah ${key}`);
+    console.log(`   repaired ayah ${key}: split ${joined.map((j) => j.uthmani).join(', ')}`);
+    out.push(...fixed);
+  }
+  return out;
 }
 
 async function ensureFont(file, url) {
@@ -372,12 +478,13 @@ async function checkPageFont(layout) {
   // 0xFFFF is the cmap table's end marker, not a glyph.
   const inFont = new Set(font.characterSet.filter((c) => c > 0x20 && c !== 0xffff));
   const used = new Set(layout.lines.flatMap((l) => l.words.flatMap((w) => [...w.code].map((c) => c.codePointAt(0)))));
-  for (const c of used) if (!inFont.has(c)) fail(`page ${page}: font ${name} has no glyph for U+${c.toString(16)}`);
-  // Some fonts carry unused glyphs after the page's last word (page 256 has 15);
-  // harmless. An unused glyph *among* the page's words means a word is missing.
-  const last = Math.max(...used);
+  for (const c of used) if (!inFont.has(c)) fail(`page ${page}: font ${name} has no glyph for U+${c.toString(16)}`, 'glyphs');
+  // Some fonts carry unused glyphs outside the range the page uses (page 256
+  // has 15 after it); harmless. An unused glyph *among* the page's codes means
+  // a word is missing.
+  const lo = Math.min(...used), hi = Math.max(...used);
   for (const c of inFont) {
-    if (c < last && !used.has(c) && !SHARED_GLYPHS.has(c)) fail(`page ${page}: font ${name} has glyph U+${c.toString(16)} that no word on the page uses`);
+    if (c > lo && c < hi && !used.has(c) && !SHARED_GLYPHS.has(c)) fail(`page ${page}: font ${name} has glyph U+${c.toString(16)} that no word on the page uses`, 'glyphs');
   }
 }
 
@@ -393,12 +500,26 @@ async function ingestPage(api, page, chapters) {
   const fetchOnce = api.github ? () => fetchPageWordsGithub(page) : async () => ({ words: await fetchPageWords(api, page), labels: null });
   const first = await fetchOnce();
   const second = await fetchOnce();
+  first.words = await repairJoinedWords(page, first.words);
+  second.words = await repairJoinedWords(page, second.words);
   if (fingerprint(first.words) !== fingerprint(second.words)) {
     fail(`page ${page}: two identical requests returned different layouts; not writing anything`);
   }
-  const layout = { ...buildLayout(page, first.words, chapters?.counts, first.labels, chapters?.names), source: api.label };
-  await checkAgainstKfgqpc(layout);
-  await checkPageFont(layout);
+  let layout;
+  try {
+    layout = { ...buildLayout(page, first.words, chapters?.counts, first.labels, chapters?.names), source: api.label };
+    if (first.fix) fail(`page ${page}: ${first.fix.note}`, 'glyphs');
+    const unconfirmed = await checkAgainstKfgqpc(layout);
+    if (unconfirmed.length) layout.unconfirmedByListing = unconfirmed;
+    await checkPageFont(layout);
+  } catch (err) {
+    if (!(allowTyped && err.kind === 'glyphs')) throw err;
+    // Words and lines are sound but the glyph codes aren't: keep the page as typed text only.
+    layout = { ...buildLayout(page, first.words, chapters?.counts, first.labels, chapters?.names, { skipGlyphChecks: true }), source: api.label };
+    layout.glyphs = false;
+    layout.problem = err.message.replace(/^page \d+: /, '');
+    console.log(`   typed text only: ${layout.problem}`);
+  }
   mkdirSync(OUT_DIR, { recursive: true });
   writeFileSync(join(OUT_DIR, `${page}.json`), JSON.stringify(layout, null, 2) + '\n');
   return layout;
@@ -406,7 +527,10 @@ async function ingestPage(api, page, chapters) {
 
 // ---------------------------------------------------------------- main
 
+let allowTyped = false;
 function parseArgs(argv) {
+  allowTyped = argv.includes('--allow-typed');
+  argv = argv.filter((a) => a !== '--allow-typed');
   const at = argv.indexOf('--source');
   const source = at === -1 ? 'api' : argv[at + 1];
   if (at !== -1) argv = argv.filter((_, i) => i !== at && i !== at + 1);

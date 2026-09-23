@@ -104,7 +104,11 @@ export function suggested(key: string): number[] {
   let s = suggestions.get(key);
   // Meaning groups matched to the translation where they exist; otherwise the
   // pause-sign and phrase-length guess.
-  if (!s) { s = meaningEnds(key)?.slice(0, -1) ?? suggestBreaks(ayahWords(key)); suggestions.set(key, s); }
+  if (!s) {
+    s = meaningEnds(key)?.slice(0, -1) ?? suggestBreaks(ayahWords(key));
+    // Only remembered once the ayah's page has loaded and there were words to group.
+    if (ayahWords(key).length) suggestions.set(key, s);
+  }
   return s;
 }
 

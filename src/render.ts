@@ -1,6 +1,6 @@
 import type { Line, PageData } from './types';
 import { BASMALAH_FAMILY, ensureFont, isConfirmed, pageFamily } from './fonts';
-import { getChapter, surahOfPage } from './data';
+import { getChapter, glyphsVerified, surahOfPage } from './data';
 
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string) => {
   const node = document.createElement(tag);
@@ -45,7 +45,9 @@ export function renderPage(data: PageData): HTMLElement {
   const page = el('article', 'page');
   page.dataset.page = String(data.page);
   page.dataset.side = sideOf(data.page);
-  page.dataset.glyphs = 'pending';
+  // A few pages are shown only as typed text: their glyph codes couldn't be
+  // checked against the King Fahd listing, so they never switch to the font.
+  page.dataset.glyphs = glyphsVerified(data.page) ? 'pending' : 'typed';
 
   const chapter = surahOfPage(data);
   const head = el('header', 'furniture running-head');
@@ -53,6 +55,8 @@ export function renderPage(data: PageData): HTMLElement {
   const foot = el('footer', 'furniture folio', String(data.page));
 
   const block = el('div', 'block');
+  // The opening two pages hold 8 lines, set in the middle of the page as in print.
+  if (data.lines.length < 15) block.classList.add('short');
   block.dir = 'rtl';
   block.lang = 'ar';
   for (const line of data.lines) {
@@ -60,6 +64,9 @@ export function renderPage(data: PageData): HTMLElement {
   }
 
   page.append(head, block, foot);
+  if (page.dataset.glyphs === 'typed') {
+    page.append(el('p', 'furniture typed-note', 'Typed text on this page: the mushaf font for it could not be checked yet.'));
+  }
   return page;
 }
 
@@ -68,6 +75,17 @@ export function renderPage(data: PageData): HTMLElement {
  * is confirmed. Safe to call repeatedly; does nothing until then.
  */
 export async function upgradeToGlyphs(pageEl: HTMLElement, data: PageData): Promise<void> {
+  // The basmalah has its own font, checked apart from the page's, so even a
+  // typed-text page shows it.
+  const bsml = pageEl.querySelectorAll<HTMLElement>('.bsml');
+  if (bsml.length) {
+    const code = data.lines.find((l) => l.type === 'basmalah')?.code ?? '';
+    if (code && (isConfirmed(BASMALAH_FAMILY) || (await ensureFont(BASMALAH_FAMILY, code)))) {
+      bsml.forEach((s) => { s.textContent = code; s.classList.add('ready'); });
+    }
+  }
+
+  if (!glyphsVerified(data.page)) return;
   const family = pageFamily(data.page);
   const sample = data.lines.flatMap((l) => l.words.map((w) => w.code)).join('');
   const ok = isConfirmed(family) || (await ensureFont(family, sample));
@@ -80,14 +98,6 @@ export async function upgradeToGlyphs(pageEl: HTMLElement, data: PageData): Prom
   block.style.setProperty('--page-font', `"${family}"`);
   pageEl.dataset.glyphs = 'ready';
   fitLines(pageEl);
-
-  const bsml = pageEl.querySelectorAll<HTMLElement>('.bsml');
-  if (bsml.length) {
-    const code = data.lines.find((l) => l.type === 'basmalah')?.code ?? '';
-    if (code && (isConfirmed(BASMALAH_FAMILY) || (await ensureFont(BASMALAH_FAMILY, code)))) {
-      bsml.forEach((s) => { s.textContent = code; s.classList.add('ready'); });
-    }
-  }
 }
 
 /**

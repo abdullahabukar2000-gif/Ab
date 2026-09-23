@@ -12,8 +12,21 @@ const confirmed = new Set<string>();
 export const pageFamily = (page: number) => `qcf2-p${page}`;
 export const BASMALAH_FAMILY = 'qcf2-bsml';
 
-const fontUrl = (family: string) =>
-  family === BASMALAH_FAMILY ? 'fonts/qcf2/bsml.ttf' : `fonts/qcf2/${family.slice('qcf2-'.length)}.ttf`;
+// Where each font file lives. In the published app the 600-odd fonts sit in
+// the artifact's file store, listed in data/fonts.json (name -> address);
+// during development they're served from public/fonts/qcf2/.
+let urls: Record<string, string> = {};
+export async function loadFontUrls(): Promise<void> {
+  try {
+    const res = await fetch('data/fonts.json');
+    if (res.ok) urls = await res.json();
+  } catch { /* development: local files */ }
+}
+
+const fontUrl = (family: string) => {
+  const name = family === BASMALAH_FAMILY ? 'bsml' : family.slice('qcf2-'.length);
+  return urls[name] ?? `fonts/qcf2/${name}.ttf`;
+};
 
 export function isConfirmed(family: string): boolean {
   return confirmed.has(family);

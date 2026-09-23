@@ -1,23 +1,67 @@
-import type { Chapter, PageData } from './types';
+import type { Chapter, PageData, Word } from './types';
 import chaptersFile from '../data/chapters.json';
 import alignFile from '../data/align/clear-quran.json';
 
-// Every ingested page is bundled, so the app works with no network at all.
-const files = import.meta.glob<PageData>('../data/pages/*.json', { eager: true, import: 'default' });
+// All 604 pages, loaded as they're needed rather than all at once. A small
+// index (which surahs and ayahs are on each page) comes first; page contents
+// arrive in files of 20 pages (see scripts/pack.js); the translation is one
+// file, fetched the first time verse by verse opens. Every file ships with
+// the app, so once opened it all works offline.
+
+interface PageSummary { s: number[]; v: [string, string]; o: number[]; t?: 1 }
+let perFile = 20;
+let summaries: Record<string, PageSummary> = {};
+
+export const TOTAL_PAGES = 604;
+export const availablePages = Array.from({ length: TOTAL_PAGES }, (_, i) => i + 1);
 
 const pages = new Map<number, PageData>();
-for (const data of Object.values(files)) pages.set(data.page, data);
+const chunkJobs = new Map<number, Promise<void>>();
 
-export const availablePages = [...pages.keys()].sort((a, b) => a - b);
+/** Load the page index. The app awaits this once before showing anything. */
+export async function loadIndex(): Promise<void> {
+  const res = await fetch('data/index.json');
+  const body = await res.json() as { perFile: number; pages: Record<string, PageSummary> };
+  perFile = body.perFile;
+  summaries = body.pages;
+}
 
+/** Make sure these pages' contents are loaded. */
+export function loadPages(nums: number[]): Promise<void> {
+  const chunks = [...new Set(nums.filter((n) => n >= 1 && n <= TOTAL_PAGES).map((n) => Math.floor((n - 1) / perFile)))];
+  return Promise.all(chunks.map((c) => {
+    let job = chunkJobs.get(c);
+    if (!job) {
+      job = fetch(`data/pages-${String(c).padStart(2, '0')}.json`)
+        .then((r) => { if (!r.ok) throw new Error(`pages ${c}: HTTP ${r.status}`); return r.json(); })
+        .then((body: Record<string, PageData>) => { for (const p of Object.values(body)) pages.set(p.page, p); })
+        .catch((e) => { chunkJobs.delete(c); throw e; });
+      chunkJobs.set(c, job);
+    }
+    return job;
+  })).then(() => undefined);
+}
+
+/** A page's contents, if loaded. */
 export function getPage(n: number): PageData | undefined {
   return pages.get(n);
 }
 
-const chapters = new Map<number, Chapter>((chaptersFile.chapters as Chapter[]).map((c) => [c.id, c]));
+/** The surahs on a page, in order (from the index; always available). */
+export const surahsOnPage = (n: number): number[] => summaries[n]?.s ?? [];
+/** The first and last ayah on a page. */
+export const ayahRange = (n: number): [string, string] | undefined => summaries[n]?.v;
+/** False for the few pages shown only as typed text (their glyphs couldn't be verified). */
+export const glyphsVerified = (n: number): boolean => !summaries[n]?.t;
 
-export function getChapter(id: number): Chapter | undefined {
-  return chapters.get(id);
+const chapters = new Map<number, Chapter>((chaptersFile.chapters as Chapter[]).map((c) => [c.id, c]));
+export function getChapter(id: number): Chapter | undefined { return chapters.get(id); }
+export const allChapters = (): Chapter[] => [...chapters.values()];
+
+/** The page a surah opens on (its heading), from the index. */
+export function surahStartPage(id: number): number {
+  const opens = availablePages.find((n) => summaries[n]?.o.includes(id));
+  return opens ?? availablePages.find((n) => summaries[n]?.s.includes(id)) ?? 1;
 }
 
 /** The surah a page's running head names: whichever surah its first word belongs to. */
@@ -26,35 +70,45 @@ export function surahOfPage(page: PageData): Chapter | undefined {
   return first ? getChapter(Number(first.verseKey.split(':')[0])) : undefined;
 }
 
-/** An ayah's words in order (end marker excluded), gathered across every page it appears on. */
-export function ayahWords(key: string): string[] {
-  const words: string[] = [];
-  for (const n of availablePages) {
-    for (const l of pages.get(n)!.lines) {
-      for (const w of l.words) if (w.verseKey === key && w.type === 'word') words[w.pos - 1] = w.uthmani;
-    }
-  }
-  return words;
+const ayahOrder = (key: string) => { const [s, a] = key.split(':').map(Number); return s * 1000 + a; };
+
+/** The pages an ayah appears on (one, or two when it runs over a page turn). */
+export function pagesOfAyah(key: string): number[] {
+  const k = ayahOrder(key);
+  return availablePages.filter((n) => {
+    const r = summaries[n]?.v;
+    return r && ayahOrder(r[0]) <= k && k <= ayahOrder(r[1]);
+  });
 }
 
-const translationFiles = import.meta.glob<{ translation: string; verses: Record<string, string> }>(
-  '../data/translations/clear-quran/*.json', { eager: true, import: 'default' },
-);
-const translations = new Map<string, string>();
-for (const file of Object.values(translationFiles)) for (const [k, v] of Object.entries(file.verses)) translations.set(k, v);
-
-export const TRANSLATION_NAME = 'The Clear Quran, Dr. Mustafa Khattab';
-export const translationOf = (key: string) => translations.get(key);
-
-/** Every word of an ayah with the page it sits on, in order, end marker included. */
-export function ayahGlyphs(key: string): { page: number; word: import('./types').Word }[] {
-  const out: { page: number; word: import('./types').Word }[] = [];
-  for (const n of availablePages) {
-    for (const l of pages.get(n)!.lines) for (const w of l.words) if (w.verseKey === key) out.push({ page: n, word: w });
+/** Every word of an ayah with the page it sits on, in order, end marker included. Its pages must be loaded. */
+export function ayahGlyphs(key: string): { page: number; word: Word }[] {
+  const out: { page: number; word: Word }[] = [];
+  for (const n of pagesOfAyah(key)) {
+    for (const l of pages.get(n)?.lines ?? []) for (const w of l.words) if (w.verseKey === key) out.push({ page: n, word: w });
   }
   return out.sort((a, b) => a.word.pos - b.word.pos);
 }
 
+/** An ayah's words in order (end marker excluded). Its pages must be loaded. */
+export function ayahWords(key: string): string[] {
+  return ayahGlyphs(key).filter((g) => g.word.type === 'word').map((g) => g.word.uthmani);
+}
+
+// ---------------------------------------------------------------- translation
+
+const translations = new Map<string, string>();
+let translationJob: Promise<void> | null = null;
+export function loadTranslations(): Promise<void> {
+  translationJob ??= fetch('data/clear-quran.json')
+    .then((r) => r.json())
+    .then((verses: Record<string, string>) => { for (const [k, v] of Object.entries(verses)) translations.set(k, v); })
+    .catch((e) => { translationJob = null; throw e; });
+  return translationJob;
+}
+
+export const TRANSLATION_NAME = 'The Clear Quran, Dr. Mustafa Khattab';
+export const translationOf = (key: string) => translations.get(key);
 
 interface Alignment { ends: number[]; pieces: [number, number, number][] }
 const alignments = (alignFile as unknown as { verses: Record<string, Alignment> }).verses;
@@ -80,27 +134,4 @@ export function translationPieces(key: string): { before: string; text: string; 
     at = end;
     return piece;
   });
-}
-
-export const allChapters = (): Chapter[] => [...chapters.values()];
-
-/** Pages that hold any ayah of a surah, and how many of its ayahs have been added. */
-const coverage = new Map<number, { pages: number[]; ayahs: Set<string> }>();
-for (const n of availablePages) {
-  for (const key of pages.get(n)!.verses) {
-    const s = Number(key.split(':')[0]);
-    const c = coverage.get(s) ?? { pages: [], ayahs: new Set<string>() };
-    if (!c.pages.includes(n)) c.pages.push(n);
-    c.ayahs.add(key);
-    coverage.set(s, c);
-  }
-}
-export function surahCoverage(id: number): { pages: number[]; added: number } {
-  const c = coverage.get(id);
-  return { pages: c?.pages ?? [], added: c?.ayahs.size ?? 0 };
-}
-
-/** The first page an ayah appears on. */
-export function pageOfAyah(key: string): number | undefined {
-  return availablePages.find((n) => pages.get(n)!.verses.includes(key));
 }
