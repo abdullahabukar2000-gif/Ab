@@ -11,9 +11,9 @@
   --ink-quiet: #7d7464;   /* page furniture: folio, running head */
   --hairline: #e3dccb;    /* gutter, cartouche inner rule */
 
-  /* the one accent: a deep muted green-teal, the mushaf ornament colour */
-  --accent: #2c5d56;
-  --accent-wash: rgb(44 93 86 / 0.08);
+  /* the one accent: crimson */
+  --accent: #a3172f;
+  --accent-wash: rgb(163 23 47 / 0.08);
 
   --mark-wash: 8%;    /* the tapped phrase's tint: at most 8% */
 

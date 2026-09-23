@@ -109,3 +109,17 @@
 - The per-phrase meaning/note fields are gone from the interface (stored notes are
   kept, unused). Controls: "verse by verse" / "mushaf page", and "hide translations"
   in verse view.
+
+# Icons, horizontal mushaf, two pages, crimson
+
+- **Accent is crimson** (#a3172f): ayah markers, buttons, open boxes, focus rings.
+- **Every clickable control is a button with an icon** (inline line icons in
+  `src/icons.ts`): next/previous, one/two pages, mushaf/verse by verse, hide/show
+  translations, use suggestion, full sentence/box by box. On phones the bar becomes
+  icon-over-label tabs.
+- **The mushaf swipes horizontally**, one screen at a time, laid out right to left:
+  the first page is on the right and the next arrives from the left, as when turning
+  a printed mushaf. Arrow keys and the chevron buttons turn pages on desktop.
+- **Two-page view is back** (odd page on the right). Hidden on phones, where the
+  spread would be too small to read.
+- Verse by verse stays a vertical scroll. Switching views or layouts keeps your page.

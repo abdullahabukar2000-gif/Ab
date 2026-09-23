@@ -7,6 +7,7 @@ import { ayahGlyphs, getPage, phraseGloss, surahOfPage, TRANSLATION_NAME, transl
 import { ensureFont, isConfirmed, pageFamily } from './fonts';
 import { moveBreak, phrasesOf, resetToSuggested, toggleBreak, usesSuggestion, type Phrase } from './notes';
 import { ayahLabel, h } from './dom';
+import { iconButton } from './icons';
 
 export interface VerseOptions { coverTranslations: boolean }
 
@@ -70,7 +71,7 @@ export function renderAyah(key: string, options: VerseOptions): HTMLElement {
     h('span', { class: 'ayah-name' }, ayahLabel(key).replace(/ \d+$/, '')),
     h('span', { class: 'ayah-status' }, suggestedNow ? 'suggested groups' : 'your groups'));
   if (!suggestedNow) {
-    const reset = h('button', { type: 'button', class: 'ayah-reset' }, 'use suggestion');
+    const reset = iconButton(h('button', { type: 'button', class: 'btn small' }), 'undo', 'use suggestion');
     reset.addEventListener('click', () => { resetToSuggested(key); rerender(); });
     head.append(reset);
   }
@@ -125,7 +126,7 @@ export function renderAyah(key: string, options: VerseOptions): HTMLElement {
  */
 function english(key: string, phrases: Phrase[], options: VerseOptions, rerender: () => void): HTMLElement {
   const wrap = h('div', { class: 'ayah-english' });
-  const switcher = h('button', { type: 'button', class: 'english-switch' });
+  const switcher = h('button', { type: 'button', class: 'btn small' });
   switcher.addEventListener('click', () => {
     if (fullSentence.has(key)) fullSentence.delete(key); else fullSentence.add(key);
     rerender();
@@ -133,7 +134,7 @@ function english(key: string, phrases: Phrase[], options: VerseOptions, rerender
 
   if (fullSentence.has(key)) {
     wrap.append(h('p', { class: 'english-line' }, translationOf(key) ?? 'No translation saved for this ayah yet.'));
-    switcher.textContent = '← back to box by box';
+    iconButton(switcher, 'words', 'box by box');
   } else {
     const line = h('p', { class: 'english-line' });
     phrases.forEach((p) => {
@@ -149,7 +150,7 @@ function english(key: string, phrases: Phrase[], options: VerseOptions, rerender
       line.append(part, ' ');
     });
     wrap.append(line);
-    switcher.textContent = 'show the full sentence';
+    iconButton(switcher, 'sentence', 'full sentence');
   }
   wrap.append(switcher);
   return wrap;

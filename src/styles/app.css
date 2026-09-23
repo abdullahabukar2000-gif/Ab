@@ -30,23 +30,37 @@ body {
   --pages-across: 1;
   --page-w: calc(var(--block-width) + 2 * var(--margin-inline));
   --page-h: calc(var(--lines) * var(--line-height) + 2 * var(--margin-block));
-  font-size: min(100cqw / (var(--pages-across) * var(--page-w)), (100cqh - 16px) / var(--page-h));
+  font-size: min((100cqw - 32px) / (var(--pages-across) * var(--page-w)), (100cqh - 16px) / var(--page-h));
   display: flex;
 }
 
-/* Mushaf view: every page fills the screen; scroll down through them. */
+/*
+ * Mushaf view: pages side by side, swiped horizontally, one screen at a time.
+ * Laid out right to left, so the first page is on the right and the next
+ * comes in from the left, as when turning a printed mushaf.
+ */
 #stage[data-view='mushaf'] {
-  display: block;
-  overflow-y: auto;
-  scroll-snap-type: y proximity;
-  padding-top: 0;
+  display: flex;
+  direction: rtl;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  padding-inline: 0;
 }
+#stage[data-view='mushaf']::-webkit-scrollbar { display: none; }
 .slot {
+  flex: 0 0 100%;
   height: 100cqh;
   display: grid;
   place-items: center;
   scroll-snap-align: start;
+  scroll-snap-stop: always;
 }
+#stage[data-layout='spread'] .spread { --pages-across: 2; }
+/* The gutter: the inner edge of the right-hand page. */
+#stage[data-layout='spread'] .page[data-side='right'] { border-left: 1px solid var(--hairline); }
 
 /* Narrow screens: give the margin back to the text. */
 @container (max-width: 560px) {
@@ -146,7 +160,7 @@ body {
 .page[data-side='right'] .furniture { right: calc(var(--margin-inline) * 1em / 0.4); }
 .page[data-side='left'] .furniture { left: calc(var(--margin-inline) * 1em / 0.4); }
 
-/* ------------------------------------------------------------------ controls */
+/* ------------------------------------------------------------------ buttons */
 
 #controls {
   position: fixed;
@@ -155,40 +169,56 @@ body {
   bottom: 0;
   z-index: 3;
   display: flex;
-  flex-wrap: wrap;
+  justify-content: space-between;
   align-items: center;
-  gap: 0.35rem 1.1rem;
-  padding: 0.45rem 16px max(0.45rem, env(safe-area-inset-bottom));
+  gap: 0.6rem;
+  padding: 0.5rem 16px max(0.5rem, env(safe-area-inset-bottom));
   background: var(--paper);
   border-top: 1px solid var(--hairline);
   font-family: var(--serif);
-  font-size: 0.9rem;
-  color: var(--accent);
 }
+#controls .group { display: flex; gap: 0.5rem; }
 
-#controls button {
+/* Every clickable control: an icon, a label, a clear edge. */
+#controls button, .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   font: inherit;
+  font-size: 0.9rem;
   font-weight: 500;
   color: var(--accent);
-  background: none;
-  border: 0;
-  padding: 0.45rem 0.1rem;
+  background: var(--paper);
+  border: 1.5px solid color-mix(in oklab, var(--accent) 35%, var(--paper));
+  border-radius: 8px;
+  padding: 0.4rem 0.75rem;
   cursor: pointer;
   white-space: nowrap;
+  transition: background-color var(--fade), border-color var(--fade);
 }
-#controls button:hover:not(:disabled) { text-decoration: underline 1px; text-underline-offset: 0.3em; }
-#controls button:disabled { color: var(--ink-quiet); opacity: 0.45; cursor: default; }
-#controls button[aria-pressed='true'] {
-  color: var(--paper);
-  background: var(--accent);
-  border-radius: 4px;
-  padding-inline: 0.6rem;
-}
-#controls button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+#controls button:hover, .btn:hover { background: var(--accent-wash); border-color: var(--accent); }
+#controls button:active, .btn:active { background: color-mix(in oklab, var(--accent) 16%, var(--paper)); }
+#controls button:focus-visible, .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+#controls .icon-only { padding: 0.4rem 0.5rem; }
+#controls .icon-only .label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.icon { flex: none; }
+.btn.small { font-size: 0.82rem; padding: 0.28rem 0.6rem; gap: 0.3rem; }
+.btn.small .icon { width: 16px; height: 16px; }
 
+/* Only what applies to the view on screen. */
+body[data-view='verses'] #controls .turn, body[data-view='verses'] #layout { display: none; }
+body[data-view='mushaf'] #cover { display: none; }
+/* Phones: a tab bar of icons with small labels; swiping replaces the arrows,
+   and the two-page spread is too small to read, so its switch goes. */
+@media (max-width: 640px) {
+  #controls { justify-content: center; }
+  #controls .turn, #layout { display: none !important; }
+  #controls .group { gap: 0.75rem; }
+  #controls button { flex-direction: column; gap: 0.15rem; font-size: 0.72rem; padding: 0.35rem 0.9rem; min-width: 7.5rem; }
+}
 
 @media (prefers-reduced-motion: reduce) {
-  #controls { transition: none; }
+  #controls button, .btn { transition: none; }
 }
 
 /* ------------------------------------------------------------------ small type */
@@ -201,18 +231,6 @@ body {
   color: var(--ink-quiet);
 }
 
-.ayah-reset {
-  font: inherit;
-  font-size: 0.78rem;
-  font-variant-caps: all-small-caps;
-  letter-spacing: 0.1em;
-  color: var(--ink-quiet);
-  background: none;
-  border: 0;
-  padding: 0.2rem 0;
-  cursor: pointer;
-}
-.ayah-reset:hover { color: var(--ink); }
 .verses button:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
 
 /* ------------------------------------------------------------------ verse by verse */
@@ -248,7 +266,7 @@ body {
 .ayah-head { display: flex; gap: 0.9rem; align-items: baseline; }
 .ayah-num { color: var(--ink); letter-spacing: 0.08em; font-size: 0.9rem; font-variant-numeric: oldstyle-nums; }
 .ayah-status { font-style: italic; font-variant-caps: normal; letter-spacing: 0.02em; }
-.ayah-reset { margin-inline-start: auto; }
+.ayah-head .btn { margin-inline-start: auto; }
 
 /*
  * The ayah flows across the line as in quran.com, each phrase group in a box.
@@ -349,16 +367,6 @@ body.dragging, body.dragging * { cursor: ew-resize !important; user-select: none
 }
 .english-part:focus-visible { outline: 1px solid var(--accent); outline-offset: 1px; }
 .english-part.open:hover { background: var(--accent-wash); }
-.english-switch {
-  font: inherit;
-  font-size: 0.85rem;
-  color: var(--accent);
-  background: none;
-  border: 0;
-  padding: 0.2rem 0;
-  cursor: pointer;
-}
-.english-switch:hover { text-decoration: underline 1px; text-underline-offset: 0.3em; }
 
 .ayah-translation {
   margin: 0;
@@ -372,14 +380,8 @@ body.dragging, body.dragging * { cursor: ew-resize !important; user-select: none
 .verses-source { margin: 1.2rem 0 0; font-size: 0.85rem; font-style: italic; color: var(--ink-quiet); }
 
 /* Controls that only make sense in one view. */
-#cover { display: none; }
-body[data-view='verses'] #cover { display: inline; }
 
-/* Phones: a tighter control bar. */
-@media (max-width: 640px) {
-  #controls { gap: 0.2rem 0.8rem; padding-inline: 12px; font-size: 0.86rem; justify-content: space-between; }
-}
-#controls button { white-space: nowrap; }
+
 
 /* While the phone sheet is open it owns the bottom edge; it has its own close. */
 
