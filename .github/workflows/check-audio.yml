@@ -6,6 +6,9 @@ on:
       surahs:
         description: Surahs to check in detail, comma separated (empty = skip)
         default: ''
+      pair:
+        description: 'Optional: SURAH TEST_FOLDER REF_FOLDER for a file-by-file comparison'
+        default: ''
       reciters:
         description: Reciters for the whole-Quran size check (empty = all)
         default: ''
@@ -15,6 +18,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: sudo apt-get install -y ffmpeg >/dev/null 2>&1 || true
-      - run: python3 scripts/check-audio-sizes.py "${{ inputs.reciters }}"
+      - if: inputs.pair != ''
+        run: python3 scripts/check-audio-pair.py ${{ inputs.pair }}
+      - if: inputs.pair == ''
+        run: python3 scripts/check-audio-sizes.py "${{ inputs.reciters }}"
       - if: inputs.surahs != ''
         run: python3 scripts/check-audio.py "${{ inputs.surahs }}"
