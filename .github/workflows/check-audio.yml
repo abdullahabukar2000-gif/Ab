@@ -1,0 +1,15 @@
+# Manual check of the recitation files (see scripts/check-audio.py).
+name: Check recitations
+on:
+  workflow_dispatch:
+    inputs:
+      surahs:
+        description: Surahs to check, comma separated
+        default: '1,14,18,36,67,78,112'
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get install -y ffmpeg >/dev/null 2>&1 || true
+      - run: python3 scripts/check-audio.py "${{ inputs.surahs }}"
