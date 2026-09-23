@@ -28,6 +28,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: node scripts/fetch-fonts.js
+      - run: python3 scripts/fetch-timings.py abdurrashid_sufi
       - run: npm run build
       - uses: actions/upload-pages-artifact@v3
         with:

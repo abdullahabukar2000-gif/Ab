@@ -8,7 +8,18 @@
 
 import { getChapter } from './data';
 
-export interface Reciter { id: string; name: string; folders: string[] }
+export interface Reciter {
+  id: string;
+  name: string;
+  /** everyayah.com folders: one file per ayah. */
+  folders: string[];
+  /**
+   * Or one file per surah, with the time each ayah starts (from the Quran
+   * Android app's timing database, fetched at build time by
+   * scripts/fetch-timings.py).
+   */
+  gapless?: { base: string; timings: string };
+}
 
 export const RECITERS: Reciter[] = [
   { id: 'alafasy', name: 'Mishary Alafasy', folders: ['Alafasy_128kbps', 'Alafasy_64kbps'] },
@@ -16,6 +27,10 @@ export const RECITERS: Reciter[] = [
   { id: 'minshawi', name: 'Muhammad Siddiq Al-Minshawi', folders: ['Minshawy_Murattal_128kbps'] },
   { id: 'muaiqly', name: 'Maher Al-Muaiqly', folders: ['MaherAlMuaiqly128kbps', 'Maher_AlMuaiqly_64kbps'] },
   { id: 'tunaiji', name: 'Khalifa Al-Tunaiji', folders: ['khalefa_al_tunaiji_64kbps'] },
+  {
+    id: 'sufi', name: 'Abdirashid Ali Sufi', folders: [],
+    gapless: { base: 'https://download.quranicaudio.com/quran/abdurrashid_sufi/', timings: 'data/timings/abdurrashid_sufi.json' },
+  },
 ];
 
 const HOSTS = ['https://everyayah.com/data/', 'https://mirrors.quranicaudio.com/everyayah/'];
@@ -58,8 +73,44 @@ const recordedCount = (r: Reciter, surah: number) => {
   } catch { /* try again next time */ }
 })();
 
+// ------------------------------------------------------------------ one file per surah
+
+const timingJobs = new Map<string, Promise<Record<string, number[]>>>();
+/** Ayah start times (ms) per surah, with the surah's end time last. */
+function timings(r: Reciter): Promise<Record<string, number[]>> {
+  let job = timingJobs.get(r.id);
+  if (!job) {
+    job = fetch(r.gapless!.timings).then((res) => { if (!res.ok) throw new Error(); return res.json(); });
+    job.catch(() => timingJobs.delete(r.id));
+    timingJobs.set(r.id, job);
+  }
+  return job;
+}
+
+/**
+ * Where an ayah sits in a one-file-per-surah recording: which surah's file,
+ * and its start and end in seconds. The basmalah is what comes before ayah 1
+ * in the surah's own file, or else Al-Fatihah's first ayah.
+ */
+async function segment(r: Reciter, surah: number, ayah: number, basmalah: boolean): Promise<{ file: number; from: number; to: number } | null> {
+  const t = await timings(r);
+  const times = t[surah];
+  if (!times) return null;
+  if (basmalah) {
+    if (times[0] > 2500) return { file: surah, from: 0, to: times[0] / 1000 };
+    const f = t[1];
+    return f ? { file: 1, from: f[0] / 1000, to: f[1] / 1000 } : null;
+  }
+  const from = times[ayah - 1];
+  const to = times[ayah] ?? Infinity;
+  return from === undefined ? null : { file: surah, from: from / 1000, to: to / 1000 };
+}
+
+const surahFile = (surah: number) => `${String(surah).padStart(3, '0')}.mp3`;
+
 /** Web addresses to try for one ayah, the one that worked last time first. */
 function addresses(r: Reciter, surah: number, ayah: number): string[] {
+  if (r.gapless) return [r.gapless.base + surahFile(surah)];
   const real = fileAyah(r, surah, ayah);
   if (real === null) return [];
   ayah = real;
@@ -71,7 +122,8 @@ function addresses(r: Reciter, surah: number, ayah: number): string[] {
 const rememberBase = (r: Reciter, url: string) => store.set(`recite-base-${r.id}`, url.slice(0, url.lastIndexOf('/') + 1));
 
 /** The key a saved recording is kept under, whichever address it came from. */
-const savedKey = (r: Reciter, surah: number, ayah: number) => new Request(`${location.origin}/__recitation/${r.id}/${file(surah, ayah)}`);
+const savedKey = (r: Reciter, surah: number, ayah: number) =>
+  new Request(`${location.origin}/__recitation/${r.id}/${r.gapless ? surahFile(surah) : file(surah, ayah)}`);
 
 async function savedBlob(r: Reciter, surah: number, ayah: number): Promise<Blob | null> {
   if (!('caches' in window)) return null;
@@ -91,18 +143,19 @@ export async function listDownloads(): Promise<SurahDownload[]> {
   const cache = await caches.open(SAVED);
   const found = new Map<string, SurahDownload>();
   for (const req of await cache.keys()) {
-    const m = req.url.match(/__recitation\/([^/]+)\/(\d{3})(\d{3})\.mp3$/);
+    const m = req.url.match(/__recitation\/([^/]+)\/(\d{3})(\d{3})?\.mp3$/);
     if (!m) continue;
     const surah = Number(m[2]);
     const id = `${m[1]}:${surah}`;
-    const entry = found.get(id) ?? { reciter: m[1], surah, saved: 0, total: recordedCount(reciterById(m[1]), surah), bytes: 0 };
+    // A whole-surah file counts as the whole surah.
+    const entry = found.get(id) ?? { reciter: m[1], surah, saved: 0, total: m[3] ? recordedCount(reciterById(m[1]), surah) : 1, bytes: 0 };
     entry.saved++;
     const res = await cache.match(req);
     entry.bytes += Number(res?.headers.get('content-length')) || 0;
     found.set(id, entry);
   }
   // The basmalah is kept as Al-Fatihah's first ayah; alone, it isn't a download of Al-Fatihah.
-  for (const [id, d] of found) if (d.surah === 1 && d.saved === 1) found.delete(id);
+  for (const [id, d] of found) if (d.surah === 1 && d.saved === 1 && d.total > 1) found.delete(id);
   return [...found.values()].sort((a, b) => a.surah - b.surah || a.reciter.localeCompare(b.reciter));
 }
 
@@ -124,8 +177,14 @@ export async function downloadSurah(reciterId: string, surah: number, progress: 
   const cache = await caches.open(SAVED);
   // Surahs after the first open with the basmalah, recited from Al-Fatihah's first ayah.
   const needsBasmalah = surah !== 1 && surah !== 9;
-  const list: [number, number][] = [...(needsBasmalah ? [[1, 1] as [number, number]] : []),
+  let list: [number, number][] = [...(needsBasmalah ? [[1, 1] as [number, number]] : []),
     ...Array.from({ length: total }, (_, i) => [surah, i + 1] as [number, number])];
+  if (r.gapless) {
+    // One file for the surah (and Al-Fatihah's, if the basmalah comes from there).
+    const b = needsBasmalah ? await segment(r, surah, 1, true).catch(() => null) : null;
+    list = [[surah, 1], ...(b && b.file === 1 ? [[1, 1] as [number, number]] : [])];
+    job.total = 1;
+  }
   let failed = '';
   for (let i = 0; i < list.length && !job.stop; i += 4) {
     await Promise.all(list.slice(i, i + 4).map(async ([s, a]) => {
@@ -145,7 +204,7 @@ export async function downloadSurah(reciterId: string, surah: number, progress: 
         }
         if (!saved) failed = navigator.onLine ? 'Some ayahs couldn’t be downloaded from this reciter’s source.' : 'You’re offline. Connect to download.';
       }
-      if (s === surah) { job.done++; progress(job.done, total); }
+      if (s === surah) { job.done++; progress(job.done, job.total); }
     }));
     if (failed) break;
   }
@@ -193,6 +252,10 @@ let now: NowPlaying | null = null;
 let blobUrl: string | null = null;
 let pauseTimer: number | undefined;
 let token = 0;
+/** For one-file-per-surah reciters: where the current ayah ends (seconds). */
+let segmentEnd: number | null = null;
+/** Set between one recitation finishing and the next starting. */
+let between = false;
 
 const tell = (error?: string) => listeners.forEach((fn) => fn(now, error));
 export const nowPlaying = () => now;
@@ -214,7 +277,7 @@ export function setSpeed(speed: number): void {
 export function toggle(): void {
   if (!now) return;
   if (now.playing) { audio.pause(); clearTimeout(pauseTimer); now.playing = false; tell(); }
-  else { now.playing = true; if (audio.src && !audio.ended) void audio.play(); else if (audio.ended) advance(); else start(); tell(); }
+  else { now.playing = true; if (between) advance(); else if (audio.src && !audio.ended) void audio.play(); else start(); tell(); }
 }
 
 export function stop(): void {
@@ -222,6 +285,9 @@ export function stop(): void {
   clearTimeout(pauseTimer);
   audio.pause();
   audio.removeAttribute('src');
+  audio.dataset.file = '';
+  segmentEnd = null;
+  between = false;
   if (blobUrl) { URL.revokeObjectURL(blobUrl); blobUrl = null; }
   if (now) { now = null; tell(); }
 }
@@ -259,9 +325,14 @@ async function start(): Promise<void> {
     return;
   }
 
+  between = false;
+  if (r.gapless) { await startSegment(r, s, a, mine); return; }
+
   const blob = await savedBlob(r, s, a);
   if (mine !== token) return;
   if (blobUrl) { URL.revokeObjectURL(blobUrl); blobUrl = null; }
+  segmentEnd = null;
+  audio.dataset.file = '';
   const sources = blob ? [(blobUrl = URL.createObjectURL(blob))] : addresses(r, s, a);
   for (const src of sources) {
     audio.src = src;
@@ -276,17 +347,83 @@ async function start(): Promise<void> {
     }
   }
   if (mine !== token) return;
+  cannotPlay();
+}
+
+function cannotPlay(): void {
+  if (!now) return;
   now.playing = false;
   tell(navigator.onLine ? 'This recording couldn’t be played.' : 'You’re offline and this surah isn’t downloaded for this reciter.');
 }
 
-audio.addEventListener('ended', () => {
+/** Play one ayah out of a whole-surah recording: seek to its start, stop at its end. */
+async function startSegment(r: Reciter, surah: number, ayah: number, mine: number): Promise<void> {
+  if (!now) return;
+  const seg = await segment(r, now.plan.surah, now.ayah, now.basmalah).catch(() => null);
+  if (mine !== token || !now) return;
+  if (!seg) { cannotPlay(); return; }
+  void surah; void ayah;
+  // Reuse the loaded file when the next ayah is in the same one.
+  const key = `${r.id}/${seg.file}`;
+  if (audio.dataset.file !== key) {
+    const blob = await savedBlob(r, seg.file, 1);
+    if (mine !== token) return;
+    if (blobUrl) { URL.revokeObjectURL(blobUrl); blobUrl = null; }
+    audio.src = blob ? (blobUrl = URL.createObjectURL(blob)) : addresses(r, seg.file, 1)[0];
+    audio.dataset.file = key;
+    await new Promise<void>((done) => {
+      if (audio.readyState >= 1) { done(); return; }
+      const ok = () => { audio.removeEventListener('loadedmetadata', ok); audio.removeEventListener('error', ok); done(); };
+      audio.addEventListener('loadedmetadata', ok);
+      audio.addEventListener('error', ok);
+    });
+    if (mine !== token || !now) return;
+    if (audio.error) { audio.dataset.file = ''; cannotPlay(); return; }
+  }
+  // Continuing straight on (next ayah, no repeat or pause): don't seek, so there's no gap.
+  if (Math.abs(audio.currentTime - seg.from) > 0.35 || audio.paused) audio.currentTime = seg.from;
+  segmentEnd = seg.to;
+  audio.playbackRate = now.plan.speed;
+  try {
+    await audio.play();
+    watchSegment();
+  } catch (e) {
+    if (mine !== token || !now) return;
+    if ((e as DOMException).name === 'NotAllowedError') { now.playing = false; tell(); return; }
+    cannotPlay();
+  }
+}
+
+/** Stop at the end of the current ayah (checked every frame, and on timeupdate as a backstop). */
+function watchSegment(): void {
+  const check = () => {
+    if (segmentEnd === null || audio.paused) return;
+    if (audio.currentTime >= segmentEnd - 0.02) { segmentEnd = null; finished(true); return; }
+    requestAnimationFrame(check);
+  };
+  requestAnimationFrame(check);
+}
+audio.addEventListener('timeupdate', () => {
+  if (segmentEnd !== null && audio.currentTime >= segmentEnd - 0.02) { segmentEnd = null; finished(true); }
+});
+
+audio.addEventListener('ended', () => { segmentEnd = null; finished(false); });
+
+/**
+ * One recitation is done. In a whole-surah file the audio keeps running into
+ * the next ayah; it is left running only if that is exactly what comes next.
+ */
+function finished(inFile: boolean): void {
   if (!now) return;
   const mine = token;
+  const p = now.plan;
+  const straightOn = inFile && !now.basmalah && p.pause === 0 && p.eachAyah === 1 && now.ayah < p.to;
+  if (inFile && !straightOn) audio.pause();
+  between = true;
   const after = () => { if (mine === token && now) advance(); };
   const wait = now.basmalah ? 0 : now.plan.pause;
   if (wait > 0) pauseTimer = window.setTimeout(after, wait * 1000); else after();
-});
+}
 
 /** Move on after a recitation; `nextAyah` skips this ayah's remaining repeats. */
 function advance(nextAyah = false): void {

@@ -221,3 +221,14 @@
   hold ayahs 2–51, file 51 repeats 51, file 52 is 52, and 14:1 is missing. The app maps
   those (FILE_FIXES in src/recite.ts), says 14:1 is missing and skips it, and clears any
   copies saved before the fix.
+
+# Bigger mushaf, Abdirashid Sufi
+
+- Mushaf page ~10% bigger: on phones the page now uses the full width (side margin
+  0.2em, 8px gutter); line spacing 1.8em (was 1.9) and smaller page margins everywhere.
+- Abdirashid Ali Sufi (Hafs) isn't on everyayah; his Hafs recitation on quranicaudio.com
+  is one file per surah. Ayah times come from the Quran Android app's timing database
+  (android.quran.com/data/databases/audio/abdurrashid_sufi.zip), fetched and checked at
+  build time by scripts/fetch-timings.py (all 114 surahs complete; lengths match the
+  ayahs). The player seeks to each ayah's start and stops at its end; straight-through
+  listening just keeps playing. Downloading a surah saves its one file.
