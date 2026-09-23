@@ -33,10 +33,10 @@
    * Measured on pages 255-262: lines run 11.4-19.6em wide without spaces.
    */
   --block-width: 19.3;
-  --line-height: 1.9;
+  --line-height: 1.8;
   --lines: 15;
-  --margin-inline: 2.4;
-  --margin-block: 2.2;
+  --margin-inline: 1.6;
+  --margin-block: 1.6;
 
   --fade: 120ms ease;
 }

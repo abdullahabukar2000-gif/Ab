@@ -31,7 +31,7 @@ body {
   --pages-across: 1;
   --page-w: calc(var(--block-width) + 2 * var(--margin-inline));
   --page-h: calc(var(--lines) * var(--line-height) + 2 * var(--margin-block));
-  font-size: min((100cqw - 32px) / (var(--pages-across) * var(--page-w)), (100cqh - 8px) / var(--page-h));
+  font-size: min((100cqw - var(--gutter, 24px)) / (var(--pages-across) * var(--page-w)), (100cqh - 4px) / var(--page-h));
   display: flex;
 }
 
@@ -65,7 +65,7 @@ body {
 
 /* Narrow screens: give the margin back to the text. */
 @container (max-width: 560px) {
-  .spread { --margin-inline: 0.5; --margin-block: 1.7; }
+  .spread { --margin-inline: 0.2; --margin-block: 1.3; --gutter: 8px; }
 }
 
 /* ------------------------------------------------------------------ page */

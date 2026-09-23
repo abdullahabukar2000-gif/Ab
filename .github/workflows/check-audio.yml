@@ -12,6 +12,9 @@ on:
       probe:
         description: Optional reciter name (regex) to look up in the recitation sites lists
         default: ''
+      timings:
+        description: Optional timing database name to fetch and check
+        default: ''
       reciters:
         description: Reciters for the whole-Quran size check (empty = all)
         default: ''
@@ -21,11 +24,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: sudo apt-get install -y ffmpeg >/dev/null 2>&1 || true
+      - if: inputs.timings != ''
+        run: python3 scripts/fetch-timings.py ${{ inputs.timings }} --audio https://download.quranicaudio.com/quran/${{ inputs.timings }}/
       - if: inputs.probe != ''
         run: python3 scripts/probe-reciter.py "${{ inputs.probe }}"
       - if: inputs.pair != ''
         run: python3 scripts/check-audio-pair.py ${{ inputs.pair }}
-      - if: inputs.pair == '' && inputs.probe == ''
+      - if: inputs.pair == '' && inputs.probe == '' && inputs.timings == ''
         run: python3 scripts/check-audio-sizes.py "${{ inputs.reciters }}"
       - if: inputs.surahs != ''
         run: python3 scripts/check-audio.py "${{ inputs.surahs }}"
