@@ -215,3 +215,9 @@
 - Repeat each ayah (1–10 or always), repeat the range, speed 0.5–1.5×, optional quiet
   after each ayah. Surahs other than 1 and 9 start with the basmalah (Al-Fatihah's first
   ayah recording) when the range starts at ayah 1.
+- Recitation check (scripts/check-audio*.py, run on GitHub Actions): every file's length
+  compared with the ayah lengths and with other reciters, across the whole Quran. All five
+  reciters are numbered correctly except Khalifa Al-Tunaiji's Surah Ibrahim: files 1–50
+  hold ayahs 2–51, file 51 repeats 51, file 52 is 52, and 14:1 is missing. The app maps
+  those (FILE_FIXES in src/recite.ts), says 14:1 is missing and skips it, and clears any
+  copies saved before the fix.

@@ -29,8 +29,40 @@ const store = {
 export const reciterById = (id: string) => RECITERS.find((r) => r.id === id) ?? RECITERS[0];
 const file = (surah: number, ayah: number) => `${String(surah).padStart(3, '0')}${String(ayah).padStart(3, '0')}.mp3`;
 
+/**
+ * Where the source's numbering is off, the file that really holds each ayah
+ * (null: the source has no recording of it). Found by comparing every file's
+ * length with the ayah lengths and with other reciters (scripts/check-audio*.py).
+ * Khalifa Al-Tunaiji, Surah Ibrahim: files 1-50 hold ayahs 2-51, file 51
+ * repeats ayah 51, file 52 is ayah 52, and ayah 1 is missing.
+ */
+const FILE_FIXES: Record<string, Record<number, (ayah: number) => number | null>> = {
+  tunaiji: { 14: (a) => (a === 1 ? null : a <= 51 ? a - 1 : 52) },
+};
+const fileAyah = (r: Reciter, surah: number, ayah: number): number | null => FILE_FIXES[r.id]?.[surah]?.(ayah) ?? ayah;
+/** How many ayahs of a surah this reciter's source actually has. */
+const recordedCount = (r: Reciter, surah: number) => {
+  const n = getChapter(surah)?.verses_count ?? 0;
+  let c = 0;
+  for (let a = 1; a <= n; a++) if (fileAyah(r, surah, a) !== null) c++;
+  return c;
+};
+
+// Saved copies made before a fix above hold the wrong ayahs: clear them once.
+(async () => {
+  try {
+    if (localStorage.getItem('recite-fixes') === '1' || !('caches' in window)) return;
+    const cache = await caches.open('hifz-recitations-v1');
+    for (const req of await cache.keys()) if (/__recitation\/tunaiji\/014/.test(req.url)) await cache.delete(req);
+    localStorage.setItem('recite-fixes', '1');
+  } catch { /* try again next time */ }
+})();
+
 /** Web addresses to try for one ayah, the one that worked last time first. */
 function addresses(r: Reciter, surah: number, ayah: number): string[] {
+  const real = fileAyah(r, surah, ayah);
+  if (real === null) return [];
+  ayah = real;
   const all = HOSTS.flatMap((host) => r.folders.map((folder) => `${host}${folder}/`));
   const good = store.get(`recite-base-${r.id}`);
   if (good && all.includes(good)) all.splice(all.indexOf(good), 1), all.unshift(good);
@@ -63,7 +95,7 @@ export async function listDownloads(): Promise<SurahDownload[]> {
     if (!m) continue;
     const surah = Number(m[2]);
     const id = `${m[1]}:${surah}`;
-    const entry = found.get(id) ?? { reciter: m[1], surah, saved: 0, total: getChapter(surah)?.verses_count ?? 0, bytes: 0 };
+    const entry = found.get(id) ?? { reciter: m[1], surah, saved: 0, total: recordedCount(reciterById(m[1]), surah), bytes: 0 };
     entry.saved++;
     const res = await cache.match(req);
     entry.bytes += Number(res?.headers.get('content-length')) || 0;
@@ -98,7 +130,7 @@ export async function downloadSurah(reciterId: string, surah: number, progress: 
   for (let i = 0; i < list.length && !job.stop; i += 4) {
     await Promise.all(list.slice(i, i + 4).map(async ([s, a]) => {
       const key = savedKey(r, s, a);
-      if (!(await cache.match(key))) {
+      if (fileAyah(r, s, a) !== null && !(await cache.match(key))) {
         let saved = false;
         for (const url of addresses(r, s, a)) {
           try {
@@ -215,6 +247,18 @@ async function start(): Promise<void> {
   tell();
   mediaSession(r);
 
+  if (fileAyah(r, s, a) === null) {
+    // No recording of this ayah by this reciter: say so, then carry on.
+    const only = now.plan.from === now.plan.to;
+    tell(`${r.name}’s recording of ${s}:${a} is missing from the source${only ? '.' : ', so it’s skipped.'}`);
+    if (only) { now.playing = false; return; }
+    pauseTimer = window.setTimeout(() => {
+      if (mine !== token || !now) return;
+      advance(true);
+    }, 2500);
+    return;
+  }
+
   const blob = await savedBlob(r, s, a);
   if (mine !== token) return;
   if (blobUrl) { URL.revokeObjectURL(blobUrl); blobUrl = null; }
@@ -244,11 +288,12 @@ audio.addEventListener('ended', () => {
   if (wait > 0) pauseTimer = window.setTimeout(after, wait * 1000); else after();
 });
 
-function advance(): void {
+/** Move on after a recitation; `nextAyah` skips this ayah's remaining repeats. */
+function advance(nextAyah = false): void {
   if (!now) return;
   const p = now.plan;
   if (now.basmalah) { now.basmalah = false; start(); return; }
-  if (p.eachAyah === 0 || now.ayahRound < p.eachAyah) { now.ayahRound++; start(); return; }
+  if (!nextAyah && (p.eachAyah === 0 || now.ayahRound < p.eachAyah)) { now.ayahRound++; start(); return; }
   now.ayahRound = 1;
   if (now.ayah < p.to) { now.ayah++; start(); return; }
   if (p.wholeRange === 0 || now.rangeRound < p.wholeRange) {
