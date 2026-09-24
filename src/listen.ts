@@ -386,8 +386,12 @@ function judge(): void {
       const at = base + w.expectedIndex;
       if (!flagged.has(at)) {
         // A run of wrong or skipped words (a missed ayah, say) is one mistake, one sound.
-        if (!flagged.has(at - 1) && !flagged.has(at + 1)) { newMistake = true; mistakes++; }
+        // (Words up to two apart count as the same run.)
+        const near = [at - 2, at - 1, at + 1, at + 2].some((i) => flagged.has(i));
+        if (!near) newMistake = true;
         flagged.add(at);
+        const all = [...flagged].sort((x, y) => x - y);
+        mistakes = all.filter((v, i) => i === 0 || v - all[i - 1] > 2).length;
       }
     }
     if (w.judgment === 'correct') lastReached = Math.max(lastReached, w.expectedIndex);
