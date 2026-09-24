@@ -254,13 +254,13 @@ function resampler(inRate: number): (input: Float32Array) => Float32Array {
 // heard once more up to there and kept; listening carries on from the cut. Only
 // if there's no pause at all is it cut with an overlap and the two stitched.
 const WINDOW = 10 * RATE;
-const LONGEST = 16 * RATE;
+const LONGEST = 18 * RATE;
 const OVERLAP = 2 * RATE;
 let stitchNext = false; // the kept words end in an overlap with what comes next
 
 const join = (words: string[]) => (stitchNext ? overlapMerge(committed, words) : committed.concat(words));
 
-/** The quietest ~250 ms after the first 3 s, as a sample offset, if it's a real pause. */
+/** The quietest ~300 ms after the first 3 s, as a sample offset, if it's a real pause. */
 function quietCut(pcm: Float32Array): number {
   const F = RATE / 50; // 20 ms frames
   const rms: number[] = [];
@@ -270,14 +270,14 @@ function quietCut(pcm: Float32Array): number {
     rms.push(Math.sqrt(sum / F));
   }
   const typical = [...rms].sort((x, y) => x - y)[Math.floor(rms.length * 0.7)] || 0;
-  const W = 12; // frames per quiet spot (~250 ms)
+  const W = 15; // frames per quiet spot (~300 ms)
   let best = -1, bestLevel = Infinity;
   for (let f = 150; f + W < rms.length - 15; f++) {
     let level = 0;
     for (let k = 0; k < W; k++) level += rms[f + k];
     if (level < bestLevel) { bestLevel = level; best = f; }
   }
-  if (best < 0 || bestLevel / W > typical * 0.25) return -1;
+  if (best < 0 || bestLevel / W > typical * 0.12) return -1;
   return (best + W / 2) * F;
 }
 
