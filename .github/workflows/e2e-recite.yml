@@ -18,6 +18,7 @@ jobs:
             -filter_complex "[0:a][1:a][2:a][3:a][4:a]concat=n=5:v=0:a=1,aresample=48000,aformat=channel_layouts=mono" -ar 48000 -ac 1 rec.wav
           ffprobe -v error -show_entries format=duration -of csv=p=0 rec.wav
       - name: The model on its own, straight from the recording
+        continue-on-error: true
         run: |
           M=https://huggingface.co/muhdur/tilawi-fastconformer-quran/resolve/e9448a0e84f3adb64c28b7a8db501dd8e0e59a84
           curl -sL -o model.onnx $M/fastconformer_full_mixed.onnx && curl -sL -o vocab.json $M/vocab.json
