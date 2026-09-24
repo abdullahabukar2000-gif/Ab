@@ -136,6 +136,8 @@ let committed: string[] = [];
 let located = false;
 const settledMarks: Marks = new Map();
 let flagged = new Set<number>(); // expected indices already beeped for
+let lastErr = new Set<number>(); // judged wrong last time round
+const shownErr = new Set<number>(); // shown as wrong now
 let mistakes = 0;
 
 let chunksFrom = 0; // sample where chunks[0] starts (older audio is let go)
@@ -171,7 +173,7 @@ export async function startListening(from: [number, number], ctx?: AudioContext)
     expected = [];
     await extendExpected(from, 400);
     base = 0; heardSettled = []; heard = []; committed = []; chunks = []; chunksFrom = 0; samples = 0; windowStart = 0; stitchNext = false;
-    located = false; settledMarks.clear(); flagged = new Set(); mistakes = 0;
+    located = false; settledMarks.clear(); flagged = new Set(); lastErr = new Set(); shownErr.clear(); mistakes = 0;
 
     // Record at the device's own rate and convert to 16 kHz here (asking the
     // browser for a 16 kHz context isn't reliable everywhere).
@@ -356,7 +358,7 @@ function locate(): boolean {
     // Walk back over any earlier words that also match (e.g. a first word
     // the model heard slightly differently).
     let i = at, h = j;
-    while (i > 0 && h > 0 && lcsRatio(E[i - 1], H[h - 1]) >= 0.6) { i--; h--; }
+    while (i > 0 && h > 0 && same(E[i - 1], H[h - 1])) { i--; h--; }
     base = i;
     heardSettled = heard.slice(0, h);
     return true;
@@ -364,8 +366,8 @@ function locate(): boolean {
   return false;
 }
 
-// Where you are: the last word (index into `expected`) confirmed by at least
-// three right words out of the last five. It only ever moves forward, so a
+// Where you are: the last word (index into `expected`) confirmed as the next
+// word said right, or by three right words out of the last five. It only ever moves forward, so a
 // stray word the model mishears as something further on can't pull you there.
 let reachedAt = -1;
 const AHEAD = 40; // how far past that point your next words are looked for…
@@ -395,6 +397,8 @@ function judge(): void {
   const isCorrect = new Set(correct);
   for (const c of correct) {
     if (c <= reachedAt) continue;
+    // The very next word, said right: follow straight away.
+    if (c === reachedAt + 1) { reachedAt = c; continue; }
     let n = 0;
     for (let k = c - 4; k <= c; k++) if (isCorrect.has(k) || (k <= reachedAt && k >= base)) n++;
     if (n >= 3) reachedAt = c;
@@ -407,6 +411,7 @@ function judge(): void {
     per.set(e.index, m);
   };
   let newMistake = false;
+  const errNow = new Set<number>();
   for (const w of result.words) {
     if (w.expectedIndex == null || w.operation === 'unattempted') continue;
     const at = base + w.expectedIndex;
@@ -414,20 +419,26 @@ function judge(): void {
     const e = exp[w.expectedIndex];
     if (w.judgment === 'correct') mark(e, 'ok');
     // Only called wrong once you've carried on correctly past it (the newest
-    // words heard can still change as more is heard).
+    // words heard can still change as more is heard), and only if it's still
+    // wrong the next time round.
     else if (w.judgment === 'apparent-error' && at < reachedAt - 1) {
+      errNow.add(at);
+      if (!lastErr.has(at)) continue;
       mark(e, 'err');
+      shownErr.add(at);
       if (!flagged.has(at)) {
         // A run of wrong or skipped words (a missed ayah, say) is one mistake, one sound.
         // (Words up to two apart count as the same run.)
-        const near = [at - 2, at - 1, at + 1, at + 2].some((i) => flagged.has(i));
-        if (!near) newMistake = true;
+        if (![at - 2, at - 1, at + 1, at + 2].some((i) => flagged.has(i))) newMistake = true;
         flagged.add(at);
-        const all = [...flagged].sort((x, y) => x - y);
-        mistakes = all.filter((v, i) => i === 0 || v - all[i - 1] > 2).length;
       }
     }
   }
+  lastErr = errNow;
+  // Anything shown wrong earlier that's now heard right stops counting.
+  for (const i of [...shownErr]) if (i >= base && !errNow.has(i)) shownErr.delete(i);
+  const all = [...shownErr].sort((x, y) => x - y);
+  mistakes = all.filter((v, i) => i === 0 || v - all[i - 1] > 2).length;
   if (newMistake) beep();
   const at = reachedAt >= base ? expected[reachedAt] : null;
   console.info(`recitation: at ${at?.key ?? '-'} · heard "${said.slice(-8).join(' ')}" · ${mistakes} mistakes`);
