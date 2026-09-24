@@ -19,11 +19,9 @@ await pg.goto('http://localhost:8080/'); await pg.waitForTimeout(3000);
 const t0 = Date.now();
 await pg.click('#recite');
 let last = '';
-while (Date.now() - t0 < 240000) {
+while (Date.now() - t0 < 140000) { // the recording is ~128 s (it would then loop)
   const s = await pg.evaluate(() => document.querySelector('#listenbar')?.textContent || '');
   if (s !== last) { console.log(`${Math.round((Date.now() - t0) / 1000)}s  ${s}`); last = s; }
-  const done = await pg.evaluate(() => document.querySelectorAll('#ayah-14-5 .vw.mark-ok').length);
-  if (done >= 5 && Date.now() - t0 > 60000) break;
   await pg.waitForTimeout(1000);
 }
 await pg.waitForTimeout(3000);
