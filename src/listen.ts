@@ -156,21 +156,33 @@ export async function startListening(from: [number, number]): Promise<void> {
   if (running) return;
   try {
     set({ phase: 'starting' });
-    stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } });
+    // Plain microphone audio: phone "voice call" processing distorts recitation.
+    stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
     await loadModel();
     expected = [];
     await extendExpected(from, 400);
     base = 0; heardSettled = []; heard = []; committed = []; chunks = []; samples = 0; windowStart = 0;
     located = false; settledMarks.clear(); flagged = new Set(); mistakes = 0;
 
-    audioCtx = new AudioContext({ sampleRate: RATE });
+    // Record at the device's own rate and convert to 16 kHz here (asking the
+    // browser for a 16 kHz context isn't reliable everywhere).
+    audioCtx = new AudioContext();
     const src = audioCtx.createMediaStreamSource(stream);
     node = audioCtx.createScriptProcessor(4096, 1, 1);
+    const resample = resampler(audioCtx.sampleRate);
+    const began = performance.now();
+    let reported = false;
     node.onaudioprocess = (e) => {
       if (!running) return;
-      const data = new Float32Array(e.inputBuffer.getChannelData(0));
+      const data = resample(e.inputBuffer.getChannelData(0));
       chunks.push(data);
       samples += data.length;
+      if (!reported && samples > 5 * RATE) {
+        reported = true;
+        let sum = 0;
+        for (const x of data) sum += x * x;
+        console.info(`recitation: mic ${audioCtx?.sampleRate} Hz, ${(samples / RATE).toFixed(1)} s recorded in ${((performance.now() - began) / 1000).toFixed(1)} s, level ${Math.sqrt(sum / data.length).toFixed(4)}`);
+      }
     };
     src.connect(node);
     node.connect(audioCtx.destination);
@@ -196,6 +208,30 @@ export function stopListening(): void {
   void audioCtx?.close().catch(() => undefined);
   node = null; stream = null; audioCtx = null;
   if (state.phase !== 'error') set({ phase: 'idle' });
+}
+
+/** Streaming conversion to 16 kHz: each output sample averages the input it covers. */
+function resampler(inRate: number): (input: Float32Array) => Float32Array {
+  const step = inRate / RATE;
+  let carry = new Float32Array(0);
+  let pos = 0; // position of the next output sample within `carry + input`
+  return (input) => {
+    const buf = new Float32Array(carry.length + input.length);
+    buf.set(carry);
+    buf.set(input, carry.length);
+    const out: number[] = [];
+    while (pos + step <= buf.length) {
+      const a = Math.floor(pos), b = Math.max(a + 1, Math.floor(pos + step));
+      let sum = 0;
+      for (let i = a; i < b; i++) sum += buf[i];
+      out.push(sum / (b - a));
+      pos += step;
+    }
+    const keep = Math.floor(pos);
+    carry = buf.slice(keep);
+    pos -= keep;
+    return Float32Array.from(out);
+  };
 }
 
 const WINDOW = 7 * RATE; // commit audio in windows of this length…
@@ -259,7 +295,14 @@ function judge(): void {
   }
   const exp = expected.slice(base, base + 160);
   const said = heard.slice(heardSettled.length);
-  const result = judgeAttempt(exp.map((e) => e.text), said);
+  // Skipping whole ayahs is cheaper to explain than garbling their words.
+  const boundaries = new Set(exp.flatMap((e, i) => (e.index === 0 ? [i] : [])));
+  const result = judgeAttempt(exp.map((e) => e.text), said, { verseBoundaries: boundaries });
+
+  // Only call a word wrong once you've carried on correctly past it: the last
+  // few words heard are still being worked out, and may just be cut off.
+  const correct = result.words.filter((w) => w.judgment === 'correct' && w.expectedIndex != null).map((w) => w.expectedIndex!);
+  const sure = correct.length >= 2 ? correct[correct.length - 2] : -1;
 
   const marks: Marks = new Map([...settledMarks].map(([k, v]) => [k, new Map(v)]));
   const mark = (e: Expected, m: 'ok' | 'err') => {
@@ -274,7 +317,7 @@ function judge(): void {
     const e = exp[w.expectedIndex];
     if (w.operation === 'unattempted') continue;
     if (w.judgment === 'correct') mark(e, 'ok');
-    else if (w.judgment === 'apparent-error') {
+    else if (w.judgment === 'apparent-error' && w.expectedIndex < sure) {
       mark(e, 'err');
       const at = base + w.expectedIndex;
       if (!flagged.has(at)) { flagged.add(at); newMistake = true; mistakes++; }
