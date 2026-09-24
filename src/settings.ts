@@ -12,6 +12,8 @@ import { megabytes } from './player';
 import { canWorkOffline, mushafSaved, saveMushaf } from './offline';
 import { getChapter } from './data';
 
+declare const __BUILT__: string;
+
 export type Mood = 'auto' | 'chalk' | 'sepia' | 'night';
 export type Script = 'mushaf' | 'amiri' | 'scheherazade' | 'naskh';
 
@@ -71,6 +73,7 @@ export function renderSettings(prefs: Prefs, change: (p: Partial<Prefs>) => void
     section('Recitations saved for offline', recitations()),
     ...(canWorkOffline() && !claudeHost() ? [section('Use without internet', offlineMushaf())] : []),
     section('Where the text comes from', sources()),
+    h('p', { class: 'setting-note version' }, `Version: ${__BUILT__}`),
   );
   return root;
 }
