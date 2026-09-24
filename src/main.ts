@@ -128,25 +128,13 @@ function show(page = lastPage ?? 1): void {
   }
   // The mushaf, swiped sideways: laid out right to left, so the first page
   // sits at the right and the next one comes in from the left, as in print.
-  // All 604 pages have a place, but only those near the screen are drawn.
-  slotObserver?.disconnect();
-  slotObserver = new IntersectionObserver((entries) => {
-    for (const e of entries) {
-      const slot = e.target as HTMLElement;
-      if (e.isIntersecting) fillSlot(slot); else emptySlot(slot);
-    }
-  }, { root: stage, rootMargin: '0px 300%' });
-  stage.replaceChildren(...slotsOf().map((pages) => {
-    const slot = document.createElement('section');
-    slot.className = 'slot';
-    slot.dataset.page = String(pages[0]);
-    slot.dataset.pages = pages.join(',');
-    slotObserver!.observe(slot);
-    return slot;
-  }));
+  // Only the page you're on and two either side are in the strip; it moves
+  // along as you swipe. (A strip of all 604 pages meant jumps of up to
+  // 200,000 pixels, which iPhone Safari doesn't always land correctly.)
+  stage.replaceChildren();
+  showSlot(slotIndexOf(page));
 }
 
-let slotObserver: IntersectionObserver | null = null;
 let verseJob: Promise<void> | null = null;
 
 function fillSlot(slot: HTMLElement): void {
@@ -171,11 +159,6 @@ function fillSlot(slot: HTMLElement): void {
   });
 }
 
-function emptySlot(slot: HTMLElement): void {
-  delete slot.dataset.filled;
-  slot.replaceChildren();
-}
-
 function currentSlot(): number[] | undefined {
   return slotsOf().find((s) => s.includes(pageInView()));
 }
@@ -184,10 +167,7 @@ function currentSlot(): number[] | undefined {
 function pageInView(): number {
   const box = stage.getBoundingClientRect();
   if (view === 'mushaf') {
-    // One slot per screen width; right to left, so scrollLeft counts down from 0.
-    const slots = stage.children;
-    const at = Math.round(Math.abs(stage.scrollLeft) / Math.max(1, stage.clientWidth));
-    const slot = slots[Math.min(at, slots.length - 1)] as HTMLElement | undefined;
+    const slot = visibleSlot();
     return slot ? Number(slot.dataset.page) : lastPage ?? 1;
   }
   if (view === 'verses') {
@@ -202,12 +182,11 @@ function pageInView(): number {
 
 function scrollToPage(page: number, smooth = false): void {
   if (view === 'mushaf') {
-    const slots = [...stage.querySelectorAll<HTMLElement>('.slot')];
-    const index = slots.findIndex((s) => s.dataset.pages!.split(',').map(Number).includes(page));
-    if (index < 0) return;
-    fillSlot(slots[index]);
-    if (smooth) stage.scrollTo({ left: slotOffset(index), behavior: 'smooth' });
-    else jumpToSlot(index);
+    const index = slotIndexOf(page);
+    const el = stage.querySelector<HTMLElement>(`.slot[data-index="${index}"]`);
+    // A neighbouring page already in the strip slides in; anything else is placed directly.
+    if (smooth && el) stage.scrollTo({ left: offsetOf(Number(el.dataset.local)), behavior: 'smooth' });
+    else showSlot(index);
   } else if (view === 'verses') {
     const heading = stage.querySelector<HTMLElement>(`.verses-page[data-page="${page}"]`);
     if (heading) stage.scrollTop += heading.getBoundingClientRect().top - stage.getBoundingClientRect().top;
@@ -215,12 +194,29 @@ function scrollToPage(page: number, smooth = false): void {
   remember();
 }
 
+// ------------------------------------------------------------------ the mushaf strip
+
+const AROUND = 2;
+const slotIndexOf = (page: number) => Math.max(0, slotsOf().findIndex((s) => s.includes(page)));
+
+/** The slot filling the screen. */
+function visibleSlot(): HTMLElement | undefined {
+  const left = stage.getBoundingClientRect().left;
+  let best: HTMLElement | undefined;
+  let bestDistance = Infinity;
+  for (const slot of stage.querySelectorAll<HTMLElement>('.slot')) {
+    const d = Math.abs(slot.getBoundingClientRect().left - left);
+    if (d < bestDistance) { bestDistance = d; best = slot; }
+  }
+  return best;
+}
+
 /**
- * Where slot `index` sits. The pages run right to left, and browsers count a
- * right-to-left scroll from 0 downwards (older ones upwards from the far end).
+ * Scroll position of the strip's `local`-th slot. Right to left, browsers
+ * count from 0 downwards (older ones upwards from the far end).
  */
-function slotOffset(index: number): number {
-  const x = index * stage.clientWidth;
+function offsetOf(local: number): number {
+  const x = local * stage.clientWidth;
   const probe = stage.scrollLeft;
   if (probe < 0) return -x;
   if (probe > 0) return stage.scrollWidth - stage.clientWidth - x;
@@ -230,33 +226,57 @@ function slotOffset(index: number): number {
   return negative ? -x : x;
 }
 
-/**
- * Go straight to a slot. Snapping is switched off while jumping (it would stop
- * at every page on the way, and Safari can snap to the wrong page after a long
- * jump), then the position is checked for a few frames and put right if the
- * browser moved it, before snapping comes back on.
- */
-let jumpRun = 0;
-function jumpToSlot(index: number): void {
-  const run = ++jumpRun;
+/** Put slot `index` (of all slots) on screen, with its neighbours either side. */
+let placing = 0;
+function showSlot(index: number): void {
+  const all = slotsOf();
+  index = Math.min(Math.max(index, 0), all.length - 1);
+  const from = Math.max(0, index - AROUND);
+  const to = Math.min(all.length - 1, index + AROUND);
+  const existing = new Map([...stage.querySelectorAll<HTMLElement>('.slot')].map((el) => [Number(el.dataset.index), el]));
+  const strip: HTMLElement[] = [];
+  for (let i = from; i <= to; i++) {
+    let el = existing.get(i);
+    if (!el || el.dataset.pages !== all[i].join(',')) {
+      el = document.createElement('section');
+      el.className = 'slot';
+      el.dataset.index = String(i);
+      el.dataset.page = String(all[i][0]);
+      el.dataset.pages = all[i].join(',');
+    }
+    el.dataset.local = String(i - from);
+    strip.push(el);
+  }
+  const run = ++placing;
   stage.style.scrollSnapType = 'none';
-  const target = slotOffset(index);
+  stage.replaceChildren(...strip);
+  strip.forEach(fillSlot);
+  const target = offsetOf(index - from);
   stage.scrollLeft = target;
+  // Check it landed (and put it right) for a few frames before snapping returns.
   let frames = 0;
   const check = () => {
-    if (run !== jumpRun) return;
-    if (Math.abs(stage.scrollLeft - target) > 2) stage.scrollLeft = target;
-    if (++frames < 12) { requestAnimationFrame(check); return; }
+    if (run !== placing) return;
+    if (Math.abs(stage.scrollLeft - target) > 1) stage.scrollLeft = target;
+    if (++frames < 6) { requestAnimationFrame(check); return; }
     stage.style.scrollSnapType = '';
-    // One last look once snapping is back on.
-    window.setTimeout(() => {
-      if (run !== jumpRun || Math.abs(stage.scrollLeft - target) <= 2) { remember(); return; }
-      stage.style.scrollSnapType = 'none';
-      stage.scrollLeft = target;
-      window.setTimeout(() => { if (run === jumpRun) { stage.style.scrollSnapType = ''; remember(); } }, 250);
-    }, 200);
+    remember();
   };
   requestAnimationFrame(check);
+}
+
+/** After a swipe settles: if you've reached the end of the strip, move the strip along. */
+function recentre(): void {
+  if (view !== 'mushaf') return;
+  const el = visibleSlot();
+  if (!el) return;
+  const local = Number(el.dataset.local);
+  const count = stage.querySelectorAll('.slot').length;
+  if (local === 0 || local === count - 1) {
+    const index = Number(el.dataset.index);
+    const last = slotsOf().length - 1;
+    if ((local === 0 && index > 0) || (local === count - 1 && index < last)) showSlot(index);
+  }
 }
 
 /** Keep the page in view for "Continue reading", and the title in step with it. */
@@ -267,7 +287,10 @@ function remember(): void {
   updateTitle();
 }
 let scrollTimer: number | undefined;
-stage.addEventListener('scroll', () => { clearTimeout(scrollTimer); scrollTimer = window.setTimeout(remember, 150); }, { passive: true });
+stage.addEventListener('scroll', () => {
+  clearTimeout(scrollTimer);
+  scrollTimer = window.setTimeout(() => { remember(); recentre(); }, 150);
+}, { passive: true });
 
 /** The ayah you chose to open (a surah's first ayah), kept while its page is in view. */
 let focusKey: string | null = null;
