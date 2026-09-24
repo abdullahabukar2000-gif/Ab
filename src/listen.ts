@@ -9,7 +9,7 @@
 // (88 MB) is downloaded once, when you first use recitation mode, and kept.
 
 import * as ort from 'onnxruntime-web/wasm';
-import { TextCTCDecoder, detectSpeech, overlapMerge, judgeAttempt, normalizeArabic } from '@tilawi/quran-asr';
+import { TextCTCDecoder, detectSpeech, overlapMerge, judgeAttempt, normalizeArabic, lcsRatio } from '@tilawi/quran-asr';
 import { ayahWords, getChapter, loadPages, pagesOfAyah } from './data';
 
 const MODEL_REPO = 'https://huggingface.co/muhdur/tilawi-fastconformer-quran/resolve/e9448a0e84f3adb64c28b7a8db501dd8e0e59a84/';
@@ -138,9 +138,12 @@ const settledMarks: Marks = new Map();
 let flagged = new Set<number>(); // expected indices already beeped for
 let mistakes = 0;
 
+let chunksFrom = 0; // sample where chunks[0] starts (older audio is let go)
+
 function allAudio(from: number): Float32Array {
+  while (chunks.length > 1 && chunksFrom + chunks[0].length <= from) chunksFrom += chunks.shift()!.length;
   const out = new Float32Array(samples - from);
-  let pos = 0, skip = from;
+  let pos = 0, skip = from - chunksFrom;
   for (const c of chunks) {
     if (skip >= c.length) { skip -= c.length; continue; }
     const part = c.subarray(skip);
@@ -161,7 +164,7 @@ export async function startListening(from: [number, number]): Promise<void> {
     await loadModel();
     expected = [];
     await extendExpected(from, 400);
-    base = 0; heardSettled = []; heard = []; committed = []; chunks = []; samples = 0; windowStart = 0;
+    base = 0; heardSettled = []; heard = []; committed = []; chunks = []; chunksFrom = 0; samples = 0; windowStart = 0; stitchNext = false;
     located = false; settledMarks.clear(); flagged = new Set(); mistakes = 0;
 
     // Record at the device's own rate and convert to 16 kHz here (asking the
@@ -246,8 +249,37 @@ function resampler(inRate: number): (input: Float32Array) => Float32Array {
   };
 }
 
-const WINDOW = 10 * RATE; // commit audio in windows of this length…
-const OVERLAP = 2 * RATE; // …overlapping by this much
+// What you've said so far is heard in pieces. Once a piece is ~10 s long it's
+// cut at the quietest moment near its end (the pause between words or ayahs),
+// heard once more up to there and kept; listening carries on from the cut. Only
+// if there's no pause at all is it cut with an overlap and the two stitched.
+const WINDOW = 10 * RATE;
+const LONGEST = 16 * RATE;
+const OVERLAP = 2 * RATE;
+let stitchNext = false; // the kept words end in an overlap with what comes next
+
+const join = (words: string[]) => (stitchNext ? overlapMerge(committed, words) : committed.concat(words));
+
+/** The quietest ~250 ms after the first 3 s, as a sample offset, if it's a real pause. */
+function quietCut(pcm: Float32Array): number {
+  const F = RATE / 50; // 20 ms frames
+  const rms: number[] = [];
+  for (let i = 0; i + F <= pcm.length; i += F) {
+    let sum = 0;
+    for (let j = i; j < i + F; j++) sum += pcm[j] * pcm[j];
+    rms.push(Math.sqrt(sum / F));
+  }
+  const typical = [...rms].sort((x, y) => x - y)[Math.floor(rms.length * 0.7)] || 0;
+  const W = 12; // frames per quiet spot (~250 ms)
+  let best = -1, bestLevel = Infinity;
+  for (let f = 150; f + W < rms.length - 15; f++) {
+    let level = 0;
+    for (let k = 0; k < W; k++) level += rms[f + k];
+    if (level < bestLevel) { bestLevel = level; best = f; }
+  }
+  if (best < 0 || bestLevel / W > typical * 0.25) return -1;
+  return (best + W / 2) * F;
+}
 
 async function loop(): Promise<void> {
   if (!running) return;
@@ -257,14 +289,25 @@ async function loop(): Promise<void> {
       const pcm = allAudio(windowStart);
       if (!detectSpeech(pcm)) {
         // Silence: nothing to hear; don't let it pile up.
-        if (pcm.length > 3 * RATE) windowStart = samples - RATE;
+        if (pcm.length > 3 * RATE) { windowStart += pcm.length - RATE; stitchNext = false; }
       } else {
         const t0 = performance.now();
-        const words = await transcribe(pcm);
-        console.info(`recitation: ${(pcm.length / RATE).toFixed(1)} s of audio heard in ${Math.round(performance.now() - t0)} ms`);
+        const cut = pcm.length >= WINDOW ? quietCut(pcm) : -1;
+        if (cut > 0) {
+          committed = join(await transcribe(pcm.subarray(0, cut)));
+          windowStart += cut;
+          stitchNext = false;
+          heard = committed;
+        } else if (pcm.length >= LONGEST) {
+          committed = join(await transcribe(pcm));
+          windowStart += pcm.length - OVERLAP;
+          stitchNext = true;
+          heard = committed;
+        } else {
+          heard = join(await transcribe(pcm));
+        }
+        console.info(`recitation: ${(pcm.length / RATE).toFixed(1)} s of audio heard in ${Math.round(performance.now() - t0)} ms${cut > 0 ? `, kept up to a pause at ${(cut / RATE).toFixed(1)} s` : ''}`);
         if (!running) return;
-        heard = overlapMerge(committed, words);
-        if (pcm.length >= WINDOW) { committed = heard; windowStart = samples - OVERLAP; }
         judge();
       }
     }
@@ -291,8 +334,12 @@ function locate(): boolean {
       if (score > bestScore) { bestScore = score; best = i; }
     }
     if (bestScore >= 3) {
-      base = best;
-      heardSettled = heard.slice(0, j);
+      // Walk back over any earlier words that also match (e.g. a first word
+      // the model heard slightly differently).
+      let i = best, h = j;
+      while (i > 0 && h > 0 && lcsRatio(E[i - 1], H[h - 1]) >= 0.6) { i--; h--; }
+      base = i;
+      heardSettled = heard.slice(0, h);
       return true;
     }
   }
@@ -332,9 +379,13 @@ function judge(): void {
     else if (w.judgment === 'apparent-error' && w.expectedIndex < sure) {
       mark(e, 'err');
       const at = base + w.expectedIndex;
-      if (!flagged.has(at)) { flagged.add(at); newMistake = true; mistakes++; }
+      if (!flagged.has(at)) {
+        // A run of wrong or skipped words (a missed ayah, say) is one mistake, one sound.
+        if (!flagged.has(at - 1)) { newMistake = true; mistakes++; }
+        flagged.add(at);
+      }
     }
-    if (w.operation === 'match' || w.operation === 'substitution') lastReached = Math.max(lastReached, w.expectedIndex);
+    if (w.judgment === 'correct') lastReached = Math.max(lastReached, w.expectedIndex);
   }
   if (newMistake) beep();
   console.info(`recitation: at ${exp[Math.max(0, lastReached)]?.key} · heard "${said.slice(-8).join(' ')}" · ${mistakes} mistakes`);

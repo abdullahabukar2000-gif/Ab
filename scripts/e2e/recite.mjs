@@ -33,9 +33,10 @@ const r = await pg.evaluate(() => {
     const a = document.getElementById('ayah-' + k.replace(':', '-'));
     if (!a) continue;
     out[k] = { words: a.querySelectorAll('.vw:not(.end)').length, ok: a.querySelectorAll('.vw.mark-ok').length, err: a.querySelectorAll('.vw.mark-err').length,
-      revealed: `${a.querySelectorAll('.english-part.open').length}/${a.querySelectorAll('.english-part').length}` };
+      revealed: `${a.querySelectorAll('.english-part.open').length}/${a.querySelectorAll('.english-part').length}`,
+      marks: [...a.querySelectorAll('.vw:not(.end)')].map((w) => (w.classList.contains('mark-ok') ? '✓' : w.classList.contains('mark-err') ? '✗' : '·')).join('') };
   }
-  return { ayahs: out, beeps: window.__beeps / 2 };
+  return { ayahs: out, beeps: window.__beeps / 2, bar: document.querySelector('#listenbar')?.textContent };
 });
 console.log(JSON.stringify(r, null, 1));
 await pg.screenshot({ path: 'recite.png' });
