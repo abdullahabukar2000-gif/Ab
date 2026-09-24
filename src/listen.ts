@@ -226,25 +226,35 @@ async function loop(): Promise<void> {
   loopTimer = window.setTimeout(loop, Math.max(250, 1200 - spent));
 }
 
-/** Find where in the expected text you started (anywhere in the first ~400 words). */
+/**
+ * Find where you started: the first run of heard words that matches a run of
+ * the page's words (anywhere in the first ~400). Anything heard before it
+ * (noise, a cough, the isti'adha) is set aside.
+ */
 function locate(): boolean {
-  if (heard.length < 3) return false;
-  const h = heard.slice(0, 4).map(normalizeArabic);
-  let best = -1, bestScore = 0;
-  for (let i = 0; i < Math.min(expected.length - 4, 400); i++) {
-    let score = 0;
-    for (let k = 0; k < h.length; k++) if (normalizeArabic(expected[i + k].text) === h[k]) score++;
-    if (score > bestScore) { bestScore = score; best = i; }
+  const H = heard.map(normalizeArabic);
+  const E = expected.slice(0, 420).map((e) => normalizeArabic(e.text));
+  const RUN = 4;
+  for (let j = 0; j + RUN <= H.length; j++) {
+    let best = -1, bestScore = 0;
+    for (let i = 0; i + RUN <= E.length; i++) {
+      let score = 0;
+      for (let k = 0; k < RUN; k++) if (E[i + k] === H[j + k]) score++;
+      if (score > bestScore) { bestScore = score; best = i; }
+    }
+    if (bestScore >= 3) {
+      base = best;
+      heardSettled = heard.slice(0, j);
+      return true;
+    }
   }
-  if (bestScore < 2) return false;
-  base = best;
-  return true;
+  return false;
 }
 
 function judge(): void {
   if (!located) {
     located = locate();
-    console.info(`recitation: heard "${heard.slice(0, 8).join(' ')}" | page starts "${expected.slice(0, 6).map((e) => normalizeArabic(e.text)).join(' ')}" | found start: ${located ? expected[base].key + ' word ' + (expected[base].index + 1) : 'no'}`);
+    console.info(`recitation: heard "${heard.slice(-14).join(' ')}" | page starts "${expected.slice(0, 6).map((e) => normalizeArabic(e.text)).join(' ')}" | found start: ${located ? expected[base].key + ' word ' + (expected[base].index + 1) : 'no'}`);
     if (!located) return;
   }
   const exp = expected.slice(base, base + 160);
@@ -272,6 +282,7 @@ function judge(): void {
     if (w.operation === 'match' || w.operation === 'substitution') lastReached = Math.max(lastReached, w.expectedIndex);
   }
   if (newMistake) beep();
+  console.info(`recitation: at ${exp[Math.max(0, lastReached)]?.key} · heard "${said.slice(-8).join(' ')}" · ${mistakes} mistakes`);
 
   // Settle everything well behind where you are, so the work stays small.
   if (lastReached > 40) {
