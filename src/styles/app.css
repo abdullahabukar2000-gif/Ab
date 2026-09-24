@@ -1,9 +1,16 @@
 *, *::before, *::after { box-sizing: border-box; }
 
-html, body { height: 100%; }
+html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
 
-/* The app shell: a slim top bar, the view, and the tab bar. */
+/*
+ * The app shell: a slim top bar, the view, the play bar and the tab bar. The
+ * shell is pinned to the screen; only the view in the middle scrolls (on
+ * iPhone the page itself would otherwise scroll, taking the bars with it).
+ */
 body {
+  position: fixed;
+  inset: 0;
+  height: 100dvh;
   margin: 0;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto auto;

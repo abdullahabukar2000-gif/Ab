@@ -64,7 +64,7 @@ const lastOf = (surah: number): Key => [surah, getChapter(surah)?.verses_count ?
 const partOf = (list: string[][], k: Key) => list.findIndex(([f, l]) => order(parseKey(f)) <= order(k) && order(k) <= order(parseKey(l))) + 1;
 
 /** One "Surah · ayah" picker. */
-function versePicker(label: string, value: Key, change: (k: Key) => void): { el: HTMLElement; set(k: Key): void } {
+function versePicker(label: string, value: Key, change: (k: Key) => void): { el: HTMLElement; set(k: Key): void; read(): Key } {
   const surah = h('select', { class: 'select', 'aria-label': `${label}: surah` }) as HTMLSelectElement;
   for (const c of allChapters()) surah.append(h('option', { value: String(c.id) }, `${c.id}. ${c.name_complex}`));
   const ayah = h('input', { type: 'number', inputmode: 'numeric', min: '1', class: 'num', 'aria-label': `${label}: ayah` }) as HTMLInputElement;
@@ -82,7 +82,7 @@ function versePicker(label: string, value: Key, change: (k: Key) => void): { el:
   ayah.addEventListener('change', () => change(read()));
   set(value);
   const el = h('div', { class: 'verse-picker' }, h('span', { class: 'verse-label' }, label), surah, ayah);
-  return { el, set };
+  return { el, set, read };
 }
 
 /** Open the recitation settings, starting from an ayah on the given page. */
@@ -196,7 +196,13 @@ export function openPlayerSheet(page: number, surah: number, from = 1): void {
 
   const playBtn = btn('play', 'Play', 'btn solid play-main');
   playBtn.addEventListener('click', () => {
-    play({ ...prefs, from: plan.from, to: plan.to });
+    // Read the boxes themselves: a number just typed may not have been
+    // registered yet (iPhone reports it only when the box loses focus).
+    let from = startPick.read();
+    let to = endPick.read();
+    if (order(to) < order(from)) to = from;
+    plan.from = from; plan.to = to;
+    play({ ...prefs, from, to });
     closePlayerSheet();
   });
 

@@ -395,7 +395,25 @@ async function startSegment(r: Reciter, surah: number, ayah: number, mine: numbe
     if (audio.error) { audio.dataset.file = ''; cannotPlay(); return; }
   }
   // Continuing straight on (next ayah, no repeat or pause): don't seek, so there's no gap.
-  if (Math.abs(audio.currentTime - seg.from) > 0.35 || audio.paused) audio.currentTime = seg.from;
+  if (Math.abs(audio.currentTime - seg.from) > 0.35 || audio.paused) {
+    if (!(await seekTo(seg.from))) {
+      // The server wouldn't let the player jump into the file: load the whole
+      // surah into memory, where it always can, and jump there.
+      if (blobUrl && audio.src === blobUrl) { cannotPlay(); return; }
+      tell('Loading the whole surah recording…');
+      try {
+        const res = await fetch(addresses(r, seg.file, 1)[0]);
+        if (!res.ok) throw new Error();
+        const blob = await res.blob();
+        if (mine !== token || !now) return;
+        if (blobUrl) URL.revokeObjectURL(blobUrl);
+        audio.src = blobUrl = URL.createObjectURL(blob);
+        if (!(await seekTo(seg.from))) { cannotPlay(); return; }
+      } catch { if (mine === token) cannotPlay(); return; }
+      if (mine !== token || !now) return;
+      tell();
+    }
+  }
   segmentEnd = seg.to;
   audio.playbackRate = now.plan.speed;
   try {
@@ -406,6 +424,25 @@ async function startSegment(r: Reciter, surah: number, ayah: number, mine: numbe
     if ((e as DOMException).name === 'NotAllowedError') { now.playing = false; tell(); return; }
     cannotPlay();
   }
+}
+
+/** Jump to `time` (seconds); false if the player couldn't get there. */
+async function seekTo(time: number): Promise<boolean> {
+  if (audio.readyState < 1) {
+    await new Promise<void>((done) => {
+      const ok = () => { audio.removeEventListener('loadedmetadata', ok); done(); };
+      audio.addEventListener('loadedmetadata', ok);
+      window.setTimeout(ok, 8000);
+    });
+  }
+  audio.currentTime = time;
+  if (Math.abs(audio.currentTime - time) < 0.5) return true;
+  await new Promise<void>((done) => {
+    const ok = () => { audio.removeEventListener('seeked', ok); done(); };
+    audio.addEventListener('seeked', ok);
+    window.setTimeout(ok, 1500);
+  });
+  return Math.abs(audio.currentTime - time) < 0.5;
 }
 
 /** Stop at the end of the current ayah (checked every frame, and on timeupdate as a backstop). */
