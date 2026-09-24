@@ -244,6 +244,7 @@ function locate(): boolean {
 function judge(): void {
   if (!located) {
     located = locate();
+    console.info(`recitation: heard "${heard.slice(0, 8).join(' ')}" | page starts "${expected.slice(0, 6).map((e) => normalizeArabic(e.text)).join(' ')}" | found start: ${located ? expected[base].key + ' word ' + (expected[base].index + 1) : 'no'}`);
     if (!located) return;
   }
   const exp = expected.slice(base, base + 160);
