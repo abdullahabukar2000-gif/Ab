@@ -12,6 +12,7 @@ RECITERS = {
     'minshawi': 'https://everyayah.com/data/Minshawy_Murattal_128kbps/',
     'muaiqly': 'https://everyayah.com/data/MaherAlMuaiqly128kbps/',
     'tunaiji': 'https://everyayah.com/data/khalefa_al_tunaiji_64kbps/',
+    'ayyub': 'https://everyayah.com/data/Muhammad_Ayyoub_128kbps/',
 }
 only = sys.argv[1].split(',') if len(sys.argv) > 1 and sys.argv[1] else list(RECITERS)
 words = {}
