@@ -337,15 +337,16 @@ function locate(): boolean {
   const E = expected.slice(0, 420).map((e) => normalizeArabic(e.text));
   // Heard as that word, or near enough (the model can drop or blur a letter).
   const same = (e: string, h: string | undefined) => !!h && (e === h || (e.length >= 3 && lcsRatio(e, h) >= 0.75));
-  // Right where you said you'd start, 3 words in a row are enough (2 exactly);
-  // anywhere further on it takes 4 of 5, and not just short common words.
+  // Right where you said you'd start, 3 words in a row are enough; anywhere
+  // further on it takes 4 of 5, and not just short common words.
   const found = (j: number): number => {
     for (let i = 0; i + 3 <= Math.min(E.length, 30); i++) {
-      if (![0, 1, 2].every((k) => same(E[i + k], H[j + k]))) continue;
-      if ([0, 1, 2].filter((k) => E[i + k] === H[j + k]).length >= 2) return i;
+      if ([0, 1, 2].every((k) => same(E[i + k], H[j + k])) && E[i].length + E[i + 1].length + E[i + 2].length >= 7) return i;
     }
     if (j + 5 > H.length) return -1;
     for (let i = 0; i + 5 <= E.length; i++) {
+      // Starting on a match, so the start isn't put a word early.
+      if (!same(E[i], H[j])) continue;
       let hits = 0, letters = 0;
       for (let k = 0; k < 5; k++) if (same(E[i + k], H[j + k])) { hits++; letters += E[i + k].length; }
       if (hits >= 4 && letters >= 14) return i;
@@ -421,7 +422,7 @@ function judge(): void {
     // Only called wrong once you've carried on correctly past it (the newest
     // words heard can still change as more is heard), and only if it's still
     // wrong the next time round.
-    else if (w.judgment === 'apparent-error' && at < reachedAt - 1) {
+    else if (w.judgment === 'apparent-error' && at < reachedAt - 2) {
       errNow.add(at);
       if (!lastErr.has(at)) continue;
       mark(e, 'err');
