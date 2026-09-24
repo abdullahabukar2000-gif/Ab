@@ -3,12 +3,13 @@
 // Usage: node scripts/e2e/model-check.mjs rec.wav model.onnx vocab.json
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-import * as ort from 'onnxruntime-node';
+import * as ort from 'onnxruntime-web';
 import { TextCTCDecoder, overlapMerge } from '@tilawi/quran-asr';
 const [wav, model, vocab] = process.argv.slice(2);
 const raw = execFileSync('ffmpeg', ['-loglevel', 'error', '-i', wav, '-ar', '16000', '-ac', '1', '-f', 'f32le', '-'], { maxBuffer: 1 << 28 });
 const pcm = new Float32Array(raw.buffer, raw.byteOffset, raw.length / 4);
-const session = await ort.InferenceSession.create(model);
+ort.env.wasm.numThreads = 1;
+const session = await ort.InferenceSession.create(new Uint8Array(readFileSync(model)));
 const decoder = new TextCTCDecoder(JSON.parse(readFileSync(vocab, 'utf8')), 1024);
 async function hear(p) {
   const out = await session.run({ audio_signal: new ort.Tensor('float32', p, [1, p.length]), length: new ort.Tensor('int64', BigInt64Array.from([BigInt(p.length)]), [1]) });

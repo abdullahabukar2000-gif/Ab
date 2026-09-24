@@ -232,3 +232,24 @@
   build time by scripts/fetch-timings.py (all 114 surahs complete; lengths match the
   ayahs). The player seeks to each ayah's start and stops at its end; straight-through
   listening just keeps playing. Downloading a surah saves its one file.
+
+# Recitation mode (listening, like Tarteel)
+
+- The mic button listens while you recite and checks you word by word against the
+  mushaf. Correct words turn green, wrong or skipped words turn red, and a short low
+  two-note sound plays for each mistake. Harakat (tashkeel) and tajweed are not judged.
+- Everything runs on the phone: Tilawi's open speech model
+  (huggingface.co/muhdur/tilawi-fastconformer-quran, pinned revision, 88 MB, checked by
+  SHA-256; CC-BY-4.0, fine-tuned from NVIDIA's Arabic FastConformer) through
+  onnxruntime-web, and @tilawi/quran-asr (MIT) to line up what you said with the text.
+  The model is downloaded only after you agree, once, and kept. Nothing is sent anywhere.
+- The expected words are always the app's own mushaf words; the model's output is only
+  compared against them and never shown as Quran text.
+- A word is called wrong only after you've carried on correctly past it, so being cut
+  off mid-word or the model still catching up doesn't count as a mistake.
+- Audio: the mic is recorded without phone-call processing, at the device's own rate,
+  and converted to 16 kHz in the app.
+- Auto-reveal: in verse by verse, translation blocks open by themselves as the words they
+  cover are recited — by you (recitation mode) or by the reciter you're listening to.
+- Test: `.github/workflows/e2e-recite.yml` feeds a real recitation (Husary 14:1, 14:2,
+  14:4, 14:5 — 14:3 left out on purpose) to the app as its microphone.

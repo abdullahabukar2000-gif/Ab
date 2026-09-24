@@ -21,7 +21,7 @@ jobs:
         run: |
           M=https://huggingface.co/muhdur/tilawi-fastconformer-quran/resolve/e9448a0e84f3adb64c28b7a8db501dd8e0e59a84
           curl -sL -o model.onnx $M/fastconformer_full_mixed.onnx && curl -sL -o vocab.json $M/vocab.json
-          npm i --no-save onnxruntime-node@1.22 && node scripts/e2e/model-check.mjs rec.wav model.onnx vocab.json
+          node scripts/e2e/model-check.mjs rec.wav model.onnx vocab.json
       - run: npm i --no-save playwright@1.56 && npx playwright install --with-deps chromium >/dev/null
       - run: (cd dist && python3 -m http.server 8080 >/dev/null 2>&1 &) && sleep 2 && node scripts/e2e/recite.mjs "$PWD/rec.wav"
       - uses: actions/upload-artifact@v4
