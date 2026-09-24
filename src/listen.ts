@@ -257,18 +257,18 @@ function resampler(inRate: number): (input: Float32Array) => Float32Array {
   };
 }
 
-// What you've said so far is heard in pieces. Once a piece is ~7 s long it's
+// What you've said so far is heard in pieces. Once a piece is ~10 s long it's
 // cut at the quietest moment near its end (the pause between words or ayahs),
 // heard once more up to there and kept; listening carries on from the cut. Only
 // if there's no pause at all is it cut with an overlap and the two stitched.
-const WINDOW = 7 * RATE;
-const LONGEST = 14 * RATE;
+const WINDOW = 10 * RATE;
+const LONGEST = 18 * RATE;
 const OVERLAP = 2 * RATE;
 let stitchNext = false; // the kept words end in an overlap with what comes next
 
 const join = (words: string[]) => (stitchNext ? overlapMerge(committed, words) : committed.concat(words));
 
-/** The quietest ~300 ms after the first 2 s, as a sample offset, if it's a real pause. */
+/** The quietest ~300 ms after the first 3 s, as a sample offset, if it's a real pause. */
 function quietCut(pcm: Float32Array): number {
   const F = RATE / 50; // 20 ms frames
   const rms: number[] = [];
@@ -280,7 +280,7 @@ function quietCut(pcm: Float32Array): number {
   const typical = [...rms].sort((x, y) => x - y)[Math.floor(rms.length * 0.7)] || 0;
   const W = 15; // frames per quiet spot (~300 ms)
   let best = -1, bestLevel = Infinity;
-  for (let f = 100; f + W < rms.length - 15; f++) {
+  for (let f = 150; f + W < rms.length - 15; f++) {
     let level = 0;
     for (let k = 0; k < W; k++) level += rms[f + k];
     if (level < bestLevel) { bestLevel = level; best = f; }
@@ -333,14 +333,19 @@ async function loop(): Promise<void> {
 function locate(): boolean {
   const H = heard.map(normalizeArabic);
   const E = expected.slice(0, 420).map((e) => normalizeArabic(e.text));
-  // Right where you said you'd start, 3 words in a row are enough; anywhere
-  // further on it takes 4 of 5, and not just short common words.
+  // Heard as that word, or near enough (the model can drop or blur a letter).
+  const same = (e: string, h: string | undefined) => !!h && (e === h || (e.length >= 3 && lcsRatio(e, h) >= 0.75));
+  // Right where you said you'd start, 3 words in a row are enough (2 exactly);
+  // anywhere further on it takes 4 of 5, and not just short common words.
   const found = (j: number): number => {
-    for (let i = 0; i + 3 <= Math.min(E.length, 30); i++) if (E[i] === H[j] && E[i + 1] === H[j + 1] && E[i + 2] === H[j + 2]) return i;
+    for (let i = 0; i + 3 <= Math.min(E.length, 30); i++) {
+      if (![0, 1, 2].every((k) => same(E[i + k], H[j + k]))) continue;
+      if ([0, 1, 2].filter((k) => E[i + k] === H[j + k]).length >= 2) return i;
+    }
     if (j + 5 > H.length) return -1;
     for (let i = 0; i + 5 <= E.length; i++) {
       let hits = 0, letters = 0;
-      for (let k = 0; k < 5; k++) if (E[i + k] === H[j + k]) { hits++; letters += E[i + k].length; }
+      for (let k = 0; k < 5; k++) if (same(E[i + k], H[j + k])) { hits++; letters += E[i + k].length; }
       if (hits >= 4 && letters >= 14) return i;
     }
     return -1;
@@ -408,8 +413,9 @@ function judge(): void {
     if (at > reachedAt) continue; // not there yet
     const e = exp[w.expectedIndex];
     if (w.judgment === 'correct') mark(e, 'ok');
-    // Only called wrong once you've carried on correctly past it.
-    else if (w.judgment === 'apparent-error' && at < reachedAt) {
+    // Only called wrong once you've carried on correctly past it (the newest
+    // words heard can still change as more is heard).
+    else if (w.judgment === 'apparent-error' && at < reachedAt - 1) {
       mark(e, 'err');
       if (!flagged.has(at)) {
         // A run of wrong or skipped words (a missed ayah, say) is one mistake, one sound.
