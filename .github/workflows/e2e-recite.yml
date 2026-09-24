@@ -16,7 +16,7 @@ jobs:
           for a in 001 002 004 005; do curl -sL -o $a.mp3 https://everyayah.com/data/Husary_128kbps/014$a.mp3; done
           ffmpeg -loglevel error -f lavfi -t 2 -i anullsrc=r=48000:cl=mono -i 001.mp3 -i 002.mp3 -i 004.mp3 -i 005.mp3 \
             -filter_complex "[0:a][1:a][2:a][3:a][4:a]concat=n=5:v=0:a=1,aresample=48000,aformat=channel_layouts=mono" -ar 48000 -ac 1 rec.wav
-          ffprobe -v error -show_entries format=duration -of csv=p=0 rec.wav
+          t=2; for a in 001 002 004 005; do echo "14:$((10#$a)) starts at ${t}s"; t=$(python3 -c "print(round($t+$(ffprobe -v error -show_entries format=duration -of csv=p=0 $a.mp3),1))"); done; echo "ends at ${t}s"
       - name: The model on its own, straight from the recording
         continue-on-error: true
         run: |

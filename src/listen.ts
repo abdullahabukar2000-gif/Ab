@@ -163,6 +163,8 @@ export async function startListening(from: [number, number], ctx?: AudioContext)
     // caller passes one in.
     audioCtx = ctx ?? new AudioContext();
     void audioCtx.resume().catch(() => undefined);
+    // iPhone: let the app's sounds play while the mic is on.
+    try { (navigator as Navigator & { audioSession?: { type: string } }).audioSession!.type = 'play-and-record'; } catch { /* older iOS / other browsers */ }
     // Plain microphone audio: phone "voice call" processing distorts recitation.
     stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
     await loadModel();
@@ -207,6 +209,7 @@ export async function startListening(from: [number, number], ctx?: AudioContext)
     if (audioCtx.state === 'suspended') await audioCtx.resume();
     running = true;
     set({ phase: 'listening', key: expected[0]?.key ?? '', mistakes: 0, heard: 0 });
+    chime();
     loop();
   } catch (e) {
     stopListening();
@@ -254,18 +257,18 @@ function resampler(inRate: number): (input: Float32Array) => Float32Array {
   };
 }
 
-// What you've said so far is heard in pieces. Once a piece is ~10 s long it's
+// What you've said so far is heard in pieces. Once a piece is ~7 s long it's
 // cut at the quietest moment near its end (the pause between words or ayahs),
 // heard once more up to there and kept; listening carries on from the cut. Only
 // if there's no pause at all is it cut with an overlap and the two stitched.
-const WINDOW = 10 * RATE;
-const LONGEST = 18 * RATE;
+const WINDOW = 7 * RATE;
+const LONGEST = 14 * RATE;
 const OVERLAP = 2 * RATE;
 let stitchNext = false; // the kept words end in an overlap with what comes next
 
 const join = (words: string[]) => (stitchNext ? overlapMerge(committed, words) : committed.concat(words));
 
-/** The quietest ~300 ms after the first 3 s, as a sample offset, if it's a real pause. */
+/** The quietest ~300 ms after the first 2 s, as a sample offset, if it's a real pause. */
 function quietCut(pcm: Float32Array): number {
   const F = RATE / 50; // 20 ms frames
   const rms: number[] = [];
@@ -277,7 +280,7 @@ function quietCut(pcm: Float32Array): number {
   const typical = [...rms].sort((x, y) => x - y)[Math.floor(rms.length * 0.7)] || 0;
   const W = 15; // frames per quiet spot (~300 ms)
   let best = -1, bestLevel = Infinity;
-  for (let f = 150; f + W < rms.length - 15; f++) {
+  for (let f = 100; f + W < rms.length - 15; f++) {
     let level = 0;
     for (let k = 0; k < W; k++) level += rms[f + k];
     if (level < bestLevel) { bestLevel = level; best = f; }
@@ -290,7 +293,7 @@ async function loop(): Promise<void> {
   if (!running) return;
   const started = performance.now();
   try {
-    if (samples - windowStart >= RATE) {
+    if (samples - windowStart >= RATE / 2) {
       const pcm = allAudio(windowStart);
       if (!detectSpeech(pcm)) {
         // Silence: nothing to hear; don't let it pile up.
@@ -317,9 +320,9 @@ async function loop(): Promise<void> {
       }
     }
   } catch { /* try again next round */ }
-  // As often as the device keeps up with (at least ~every 1.2 s).
+  // Again straight away (the phone is only ever busy with one listen at a time).
   const spent = performance.now() - started;
-  loopTimer = window.setTimeout(loop, Math.max(250, 1200 - spent));
+  loopTimer = window.setTimeout(loop, Math.max(60, 400 - spent));
 }
 
 /**
@@ -330,43 +333,67 @@ async function loop(): Promise<void> {
 function locate(): boolean {
   const H = heard.map(normalizeArabic);
   const E = expected.slice(0, 420).map((e) => normalizeArabic(e.text));
-  const RUN = 4;
-  for (let j = 0; j + RUN <= H.length; j++) {
-    let best = -1, bestScore = 0;
-    for (let i = 0; i + RUN <= E.length; i++) {
-      let score = 0;
-      for (let k = 0; k < RUN; k++) if (E[i + k] === H[j + k]) score++;
-      if (score > bestScore) { bestScore = score; best = i; }
+  // Right where you said you'd start, 3 words in a row are enough; anywhere
+  // further on it takes 4 of 5, and not just short common words.
+  const found = (j: number): number => {
+    for (let i = 0; i + 3 <= Math.min(E.length, 30); i++) if (E[i] === H[j] && E[i + 1] === H[j + 1] && E[i + 2] === H[j + 2]) return i;
+    if (j + 5 > H.length) return -1;
+    for (let i = 0; i + 5 <= E.length; i++) {
+      let hits = 0, letters = 0;
+      for (let k = 0; k < 5; k++) if (E[i + k] === H[j + k]) { hits++; letters += E[i + k].length; }
+      if (hits >= 4 && letters >= 14) return i;
     }
-    if (bestScore >= 3) {
-      // Walk back over any earlier words that also match (e.g. a first word
-      // the model heard slightly differently).
-      let i = best, h = j;
-      while (i > 0 && h > 0 && lcsRatio(E[i - 1], H[h - 1]) >= 0.6) { i--; h--; }
-      base = i;
-      heardSettled = heard.slice(0, h);
-      return true;
-    }
+    return -1;
+  };
+  for (let j = 0; j + 3 <= H.length; j++) {
+    const at = found(j);
+    if (at < 0) continue;
+    // Walk back over any earlier words that also match (e.g. a first word
+    // the model heard slightly differently).
+    let i = at, h = j;
+    while (i > 0 && h > 0 && lcsRatio(E[i - 1], H[h - 1]) >= 0.6) { i--; h--; }
+    base = i;
+    heardSettled = heard.slice(0, h);
+    return true;
   }
   return false;
 }
+
+// Where you are: the last word (index into `expected`) confirmed by at least
+// three right words out of the last five. It only ever moves forward, so a
+// stray word the model mishears as something further on can't pull you there.
+let reachedAt = -1;
+const AHEAD = 40; // how far past that point your next words are looked for…
+const SKIP_AHEAD = 160; // …or further, once it's clear you've jumped ahead (a skipped ayah)
 
 function judge(): void {
   if (!located) {
     located = locate();
     console.info(`recitation: heard "${heard.slice(-14).join(' ')}" | page starts "${expected.slice(0, 6).map((e) => normalizeArabic(e.text)).join(' ')}" | found start: ${located ? expected[base].key + ' word ' + (expected[base].index + 1) : 'no'}`);
     if (!located) return;
+    reachedAt = base - 1;
   }
-  const exp = expected.slice(base, base + 160);
   const said = heard.slice(heardSettled.length);
-  // Skipping whole ayahs is cheaper to explain than garbling their words.
-  const boundaries = new Set(exp.flatMap((e, i) => (e.index === 0 ? [i] : [])));
-  const result = judgeAttempt(exp.map((e) => e.text), said, { verseBoundaries: boundaries });
+  const attempt = (ahead: number) => {
+    const exp = expected.slice(base, Math.max(base, reachedAt + 1) + ahead);
+    // Skipping whole ayahs is cheaper to explain than garbling their words.
+    const boundaries = new Set(exp.flatMap((e, i) => (e.index === 0 ? [i] : [])));
+    return { exp, result: judgeAttempt(exp.map((e) => e.text), said, { verseBoundaries: boundaries }) };
+  };
+  const lastHeardUsed = (r: ReturnType<typeof judgeAttempt>) =>
+    Math.max(-1, ...r.words.filter((w) => w.judgment === 'correct' && w.recognizedIndex != null).map((w) => w.recognizedIndex!));
+  let { exp, result } = attempt(AHEAD);
+  // Lots heard that matches nothing close by: look further ahead.
+  if (said.length - 1 - lastHeardUsed(result) >= 8) ({ exp, result } = attempt(SKIP_AHEAD));
 
-  // Only call a word wrong once you've carried on correctly past it: the last
-  // few words heard are still being worked out, and may just be cut off.
-  const correct = result.words.filter((w) => w.judgment === 'correct' && w.expectedIndex != null).map((w) => w.expectedIndex!);
-  const sure = correct.length >= 2 ? correct[correct.length - 2] : -1;
+  const correct = result.words.filter((w) => w.judgment === 'correct' && w.expectedIndex != null).map((w) => base + w.expectedIndex!);
+  const isCorrect = new Set(correct);
+  for (const c of correct) {
+    if (c <= reachedAt) continue;
+    let n = 0;
+    for (let k = c - 4; k <= c; k++) if (isCorrect.has(k) || (k <= reachedAt && k >= base)) n++;
+    if (n >= 3) reachedAt = c;
+  }
 
   const marks: Marks = new Map([...settledMarks].map(([k, v]) => [k, new Map(v)]));
   const mark = (e: Expected, m: 'ok' | 'err') => {
@@ -374,16 +401,16 @@ function judge(): void {
     if (!per) marks.set(e.key, (per = new Map()));
     per.set(e.index, m);
   };
-  let lastReached = -1;
   let newMistake = false;
   for (const w of result.words) {
-    if (w.expectedIndex == null) continue;
+    if (w.expectedIndex == null || w.operation === 'unattempted') continue;
+    const at = base + w.expectedIndex;
+    if (at > reachedAt) continue; // not there yet
     const e = exp[w.expectedIndex];
-    if (w.operation === 'unattempted') continue;
     if (w.judgment === 'correct') mark(e, 'ok');
-    else if (w.judgment === 'apparent-error' && w.expectedIndex < sure) {
+    // Only called wrong once you've carried on correctly past it.
+    else if (w.judgment === 'apparent-error' && at < reachedAt) {
       mark(e, 'err');
-      const at = base + w.expectedIndex;
       if (!flagged.has(at)) {
         // A run of wrong or skipped words (a missed ayah, say) is one mistake, one sound.
         // (Words up to two apart count as the same run.)
@@ -394,14 +421,15 @@ function judge(): void {
         mistakes = all.filter((v, i) => i === 0 || v - all[i - 1] > 2).length;
       }
     }
-    if (w.judgment === 'correct') lastReached = Math.max(lastReached, w.expectedIndex);
   }
   if (newMistake) beep();
-  console.info(`recitation: at ${exp[Math.max(0, lastReached)]?.key} · heard "${said.slice(-8).join(' ')}" · ${mistakes} mistakes`);
+  const at = reachedAt >= base ? expected[reachedAt] : null;
+  console.info(`recitation: at ${at?.key ?? '-'} · heard "${said.slice(-8).join(' ')}" · ${mistakes} mistakes`);
 
   // Settle everything well behind where you are, so the work stays small.
-  if (lastReached > 40) {
-    const upTo = lastReached - 20;
+  const rel = reachedAt - base;
+  if (rel > 40) {
+    const upTo = rel - 20;
     const anchor = result.words.find((w) => w.expectedIndex === upTo && w.recognizedIndex != null);
     if (anchor) {
       for (const [k, v] of marks) settledMarks.set(k, new Map(v));
@@ -411,8 +439,7 @@ function judge(): void {
     }
   }
 
-  const at = lastReached >= 0 ? exp[lastReached] : null;
-  set({ phase: 'listening', key: at?.key ?? exp[0]?.key ?? '', mistakes, heard: heard.length });
+  set({ phase: 'listening', key: at?.key ?? expected[base]?.key ?? '', mistakes, heard: heard.length });
   markFns.forEach((fn) => fn(marks, at ? { key: at.key, words: at.index + 1 } : null));
 }
 
@@ -421,22 +448,27 @@ function nextAfter(key: string): [number, number] {
   return a < (getChapter(s)?.verses_count ?? 0) ? [s, a + 1] : [s + 1, 1];
 }
 
-/** A short, low two-note sound for a mistake. */
-function beep(): void {
+function tones(notes: [freq: number, at: number][], volume: number, length: number): void {
   try {
     const ctx = audioCtx ?? new AudioContext();
-    const t = ctx.currentTime;
-    for (const [freq, at] of [[440, 0], [330, 0.13]] as const) {
+    const t = ctx.currentTime + 0.02;
+    for (const [freq, at] of notes) {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
-      osc.type = 'sine';
+      osc.type = 'triangle';
       osc.frequency.value = freq;
       gain.gain.setValueAtTime(0.0001, t + at);
-      gain.gain.exponentialRampToValueAtTime(0.35, t + at + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, t + at + 0.12);
+      gain.gain.exponentialRampToValueAtTime(volume, t + at + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + at + length);
       osc.connect(gain).connect(ctx.destination);
       osc.start(t + at);
-      osc.stop(t + at + 0.14);
+      osc.stop(t + at + length + 0.02);
     }
   } catch { /* no sound available */ }
 }
+
+/** Listening has started: a short rising chime. */
+const chime = () => tones([[523, 0], [784, 0.12]], 0.6, 0.16);
+
+/** A mistake: a clear falling two-note sound. */
+const beep = () => tones([[466, 0], [311, 0.16]], 0.9, 0.2);
