@@ -247,8 +247,12 @@
   compared against them and never shown as Quran text.
 - A word is called wrong only after you've carried on correctly past it, so being cut
   off mid-word or the model still catching up doesn't count as a mistake.
-- Audio: the mic is recorded without phone-call processing, at the device's own rate,
-  and converted to 16 kHz in the app.
+- Audio: the mic is recorded without phone-call processing, at the device's own rate, on
+  the audio thread (public/mic-worklet.js; nothing is dropped while the model runs), and
+  converted to 16 kHz in the app. It's heard in pieces of ~10 s cut at a real pause, so
+  no word is split between pieces.
+- A run of wrong or skipped words (a missed ayah) is one mistake and one sound.
+- Result of the e2e check: all 70 recited words right, the left-out ayah 14:3 flagged.
 - Auto-reveal: in verse by verse, translation blocks open by themselves as the words they
   cover are recited — by you (recitation mode) or by the reciter you're listening to.
 - Test: `.github/workflows/e2e-recite.yml` feeds a real recitation (Husary 14:1, 14:2,
