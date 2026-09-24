@@ -121,7 +121,7 @@ async function extendExpected(from: [number, number], count: number): Promise<vo
 
 let audioCtx: AudioContext | null = null;
 let stream: MediaStream | null = null;
-let node: ScriptProcessorNode | null = null;
+let node: AudioNode | null = null;
 let chunks: Float32Array[] = [];
 let samples = 0;
 let running = false;
@@ -168,13 +168,12 @@ export async function startListening(from: [number, number]): Promise<void> {
     // browser for a 16 kHz context isn't reliable everywhere).
     audioCtx = new AudioContext();
     const src = audioCtx.createMediaStreamSource(stream);
-    node = audioCtx.createScriptProcessor(4096, 1, 1);
     const resample = resampler(audioCtx.sampleRate);
     const began = performance.now();
     let reported = false;
-    node.onaudioprocess = (e) => {
+    const take = (input: Float32Array) => {
       if (!running) return;
-      const data = resample(e.inputBuffer.getChannelData(0));
+      const data = resample(input);
       chunks.push(data);
       samples += data.length;
       if (!reported && samples > 5 * RATE) {
@@ -184,8 +183,21 @@ export async function startListening(from: [number, number]): Promise<void> {
         console.info(`recitation: mic ${audioCtx?.sampleRate} Hz, ${(samples / RATE).toFixed(1)} s recorded in ${((performance.now() - began) / 1000).toFixed(1)} s, level ${Math.sqrt(sum / data.length).toFixed(4)}`);
       }
     };
+    // Record on the audio thread where possible: the page is busy for a second
+    // or two each time it listens back, and the older way drops sound then.
+    try {
+      await audioCtx.audioWorklet.addModule(new URL('mic-worklet.js', location.href).href);
+      const w = new AudioWorkletNode(audioCtx, 'mic');
+      w.port.onmessage = (e) => take(e.data as Float32Array);
+      w.connect(audioCtx.destination); // silent; keeps it running everywhere
+      node = w;
+    } catch {
+      const sp = audioCtx.createScriptProcessor(4096, 1, 1);
+      sp.onaudioprocess = (e) => take(new Float32Array(e.inputBuffer.getChannelData(0)));
+      sp.connect(audioCtx.destination);
+      node = sp;
+    }
     src.connect(node);
-    node.connect(audioCtx.destination);
     if (audioCtx.state === 'suspended') await audioCtx.resume();
     running = true;
     set({ phase: 'listening', key: expected[0]?.key ?? '', mistakes: 0, heard: 0 });
@@ -234,8 +246,8 @@ function resampler(inRate: number): (input: Float32Array) => Float32Array {
   };
 }
 
-const WINDOW = 7 * RATE; // commit audio in windows of this length…
-const OVERLAP = 1.5 * RATE; // …overlapping by this much
+const WINDOW = 10 * RATE; // commit audio in windows of this length…
+const OVERLAP = 2 * RATE; // …overlapping by this much
 
 async function loop(): Promise<void> {
   if (!running) return;
