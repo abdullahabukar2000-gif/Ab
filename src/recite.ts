@@ -27,6 +27,7 @@ export const RECITERS: Reciter[] = [
   { id: 'minshawi', name: 'Muhammad Siddiq Al-Minshawi', folders: ['Minshawy_Murattal_128kbps'] },
   { id: 'muaiqly', name: 'Maher Al-Muaiqly', folders: ['MaherAlMuaiqly128kbps', 'Maher_AlMuaiqly_64kbps'] },
   { id: 'tunaiji', name: 'Khalifa Al-Tunaiji', folders: ['khalefa_al_tunaiji_64kbps'] },
+  { id: 'ayyub', name: 'Muhammad Ayyub', folders: ['Muhammad_Ayyoub_128kbps', 'Muhammad_Ayyoub_64kbps'] },
   {
     id: 'sufi', name: 'Abdirashid Ali Sufi', folders: [],
     gapless: { base: 'https://download.quranicaudio.com/quran/abdurrashid_sufi/', timings: 'data/timings/abdurrashid_sufi.json' },
