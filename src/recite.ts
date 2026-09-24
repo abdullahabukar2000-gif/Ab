@@ -259,6 +259,23 @@ let segmentEnd: number | null = null;
 let between = false;
 /** The recording runs straight on into the next ayah (no jump needed). */
 let continuing = false;
+/** For one-file-per-surah reciters: where the current ayah starts (seconds). */
+let segmentStart = 0;
+
+type ProgressFn = (key: string, fraction: number) => void;
+const progressFns = new Set<ProgressFn>();
+/** How far through the current ayah the recitation is (0 to 1), a few times a second. */
+export function onProgress(fn: ProgressFn): () => void { progressFns.add(fn); return () => progressFns.delete(fn); }
+function emitProgress(): void {
+  if (!now || now.basmalah || !progressFns.size) return;
+  const t = audio.currentTime;
+  const end = segmentEnd !== null && Number.isFinite(segmentEnd) ? segmentEnd : audio.duration;
+  const start = audio.dataset.file ? segmentStart : 0;
+  if (!Number.isFinite(end) || end <= start) return;
+  const fraction = Math.min(1, Math.max(0, (t - start) / (end - start)));
+  const key = `${now.surah}:${now.ayah}`;
+  progressFns.forEach((fn) => fn(key, fraction));
+}
 
 const tell = (error?: string) => listeners.forEach((fn) => fn(now, error));
 export const nowPlaying = () => now;
@@ -406,6 +423,7 @@ async function startSegment(r: Reciter, surah: number, ayah: number, mine: numbe
     audio.currentTime = seg.from;
   }
   segmentEnd = seg.to;
+  segmentStart = seg.from;
   audio.playbackRate = now.plan.speed;
   try {
     await audio.play();
@@ -471,6 +489,7 @@ function watchSegment(): void {
   requestAnimationFrame(check);
 }
 audio.addEventListener('timeupdate', () => {
+  emitProgress();
   if (segmentEnd !== null && audio.currentTime >= segmentEnd - 0.02) { segmentEnd = null; finished(true); }
 });
 

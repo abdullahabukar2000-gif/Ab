@@ -1,0 +1,315 @@
+// Recitation mode: listens to you recite and checks it word by word against
+// the page, like Tarteel. Wrong and skipped words are flagged with a sound;
+// harakat (tashkeel) and tajweed are not judged.
+//
+// It runs entirely on the device: the microphone audio goes to an open Quran
+// speech model (Tilawi's FastConformer, fine-tuned on recitation) through
+// onnxruntime-web, and the transcript is judged against the fixed Quran text
+// with @tilawi/quran-asr's word aligner. Nothing is sent anywhere. The model
+// (88 MB) is downloaded once, when you first use recitation mode, and kept.
+
+import * as ort from 'onnxruntime-web/wasm';
+import { TextCTCDecoder, detectSpeech, overlapMerge, judgeAttempt, normalizeArabic } from '@tilawi/quran-asr';
+import { ayahWords, getChapter, loadPages, pagesOfAyah } from './data';
+
+const MODEL_REPO = 'https://huggingface.co/muhdur/tilawi-fastconformer-quran/resolve/e9448a0e84f3adb64c28b7a8db501dd8e0e59a84/';
+const MODEL_FILE = 'fastconformer_full_mixed.onnx';
+const MODEL_BYTES = 88_307_366;
+const MODEL_SHA256 = '4767182cd92975869f81a7e32700b14ca2b04e8dc97a15ff220a8697f4639488';
+const CACHE = 'hifz-recitation-model-v1';
+const RATE = 16000;
+
+export type ListenState =
+  | { phase: 'idle' }
+  | { phase: 'downloading'; done: number; total: number }
+  | { phase: 'starting' }
+  | { phase: 'listening'; key: string; mistakes: number; heard: number }
+  | { phase: 'error'; message: string };
+
+type Listener = (s: ListenState) => void;
+const listeners = new Set<Listener>();
+let state: ListenState = { phase: 'idle' };
+export const listenState = () => state;
+export function onListen(fn: Listener): () => void { listeners.add(fn); return () => listeners.delete(fn); }
+function set(next: ListenState): void { state = next; listeners.forEach((fn) => fn(state)); }
+
+/** Word marks for the screen: per ayah, word index -> ok / err. */
+export type Marks = Map<string, Map<number, 'ok' | 'err'>>;
+type MarksFn = (marks: Marks, reached: { key: string; words: number } | null) => void;
+const markFns = new Set<MarksFn>();
+export function onMarks(fn: MarksFn): () => void { markFns.add(fn); return () => markFns.delete(fn); }
+
+// ------------------------------------------------------------------ the model
+
+let session: ort.InferenceSession | null = null;
+let decoder: TextCTCDecoder | null = null;
+
+const hex = (buf: ArrayBuffer) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
+
+/** Download (once) and start the speech model. */
+async function loadModel(): Promise<void> {
+  if (session && decoder) return;
+  ort.env.wasm.wasmPaths = new URL('ort/', location.href).href;
+  ort.env.wasm.numThreads = self.crossOriginIsolated ? Math.min(4, navigator.hardwareConcurrency || 1) : 1;
+
+  const cache = await caches.open(CACHE);
+  let modelRes = await cache.match(MODEL_REPO + MODEL_FILE);
+  if (!modelRes) {
+    try { await navigator.storage?.persist?.(); } catch { /* optional */ }
+    const res = await fetch(MODEL_REPO + MODEL_FILE);
+    if (!res.ok || !res.body) throw new Error('download');
+    const reader = res.body.getReader();
+    const parts: Uint8Array[] = [];
+    let done = 0;
+    for (;;) {
+      const { value, done: finished } = await reader.read();
+      if (finished) break;
+      parts.push(value);
+      done += value.length;
+      set({ phase: 'downloading', done, total: MODEL_BYTES });
+    }
+    const blob = new Blob(parts as BlobPart[]);
+    // Only keep a file that is exactly the published model.
+    if (hex(await crypto.subtle.digest('SHA-256', await blob.arrayBuffer())) !== MODEL_SHA256) throw new Error('checksum');
+    await cache.put(MODEL_REPO + MODEL_FILE, new Response(blob));
+    modelRes = await cache.match(MODEL_REPO + MODEL_FILE);
+  }
+  set({ phase: 'starting' });
+  const vocabRes = (await cache.match(MODEL_REPO + 'vocab.json')) ?? await (async () => {
+    const r = await fetch(MODEL_REPO + 'vocab.json');
+    if (!r.ok) throw new Error('download');
+    await cache.put(MODEL_REPO + 'vocab.json', r.clone());
+    return r;
+  })();
+  decoder = new TextCTCDecoder(await vocabRes.json(), 1024);
+  session = await ort.InferenceSession.create(new Uint8Array(await modelRes!.arrayBuffer()), { executionProviders: ['wasm'] });
+}
+
+/** Run the model on 16 kHz mono audio and return the heard words. */
+async function transcribe(pcm: Float32Array): Promise<string[]> {
+  const feeds: Record<string, ort.Tensor> = {
+    audio_signal: new ort.Tensor('float32', pcm, [1, pcm.length]),
+    length: new ort.Tensor('int64', BigInt64Array.from([BigInt(pcm.length)]), [1]),
+  };
+  const out = await session!.run(feeds);
+  const t = out[session!.outputNames[0]];
+  const [, steps, vocab] = t.dims as number[];
+  const text = decoder!.decode(t.data as Float32Array, steps, vocab).text;
+  return text.split(/\s+/).filter(Boolean);
+}
+
+export const modelDownloaded = async () => !!(await (await caches.open(CACHE)).match(MODEL_REPO + MODEL_FILE));
+export const MODEL_SIZE_MB = Math.round(MODEL_BYTES / 1e6);
+
+// ------------------------------------------------------------------ the text
+
+interface Expected { key: string; index: number; text: string }
+let expected: Expected[] = [];
+
+/** The words from `start` on (a few pages' worth, extended as you go). */
+async function extendExpected(from: [number, number], count: number): Promise<void> {
+  let [s, a] = from;
+  while (expected.length < count && s <= 114) {
+    const key = `${s}:${a}`;
+    await loadPages(pagesOfAyah(key));
+    ayahWords(key).forEach((text, index) => expected.push({ key, index, text }));
+    if (a < (getChapter(s)?.verses_count ?? 0)) a++; else { s++; a = 1; }
+  }
+}
+
+// ------------------------------------------------------------------ listening
+
+let audioCtx: AudioContext | null = null;
+let stream: MediaStream | null = null;
+let node: ScriptProcessorNode | null = null;
+let chunks: Float32Array[] = [];
+let samples = 0;
+let running = false;
+let loopTimer: number | undefined;
+
+// Judging state: words before `base` are settled; the rest is judged afresh each time.
+let base = 0; // index into `expected`
+let heardSettled: string[] = []; // heard words already matched to expected[0..base)
+let heard: string[] = []; // all heard words
+let windowStart = 0; // sample where the not-yet-committed audio starts
+let committed: string[] = [];
+let located = false;
+const settledMarks: Marks = new Map();
+let flagged = new Set<number>(); // expected indices already beeped for
+let mistakes = 0;
+
+function allAudio(from: number): Float32Array {
+  const out = new Float32Array(samples - from);
+  let pos = 0, skip = from;
+  for (const c of chunks) {
+    if (skip >= c.length) { skip -= c.length; continue; }
+    const part = c.subarray(skip);
+    out.set(part, pos);
+    pos += part.length;
+    skip = 0;
+  }
+  return out;
+}
+
+/** Start listening from an ayah (you may start anywhere in the next page or so). */
+export async function startListening(from: [number, number]): Promise<void> {
+  if (running) return;
+  try {
+    set({ phase: 'starting' });
+    stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } });
+    await loadModel();
+    expected = [];
+    await extendExpected(from, 400);
+    base = 0; heardSettled = []; heard = []; committed = []; chunks = []; samples = 0; windowStart = 0;
+    located = false; settledMarks.clear(); flagged = new Set(); mistakes = 0;
+
+    audioCtx = new AudioContext({ sampleRate: RATE });
+    const src = audioCtx.createMediaStreamSource(stream);
+    node = audioCtx.createScriptProcessor(4096, 1, 1);
+    node.onaudioprocess = (e) => {
+      if (!running) return;
+      const data = new Float32Array(e.inputBuffer.getChannelData(0));
+      chunks.push(data);
+      samples += data.length;
+    };
+    src.connect(node);
+    node.connect(audioCtx.destination);
+    if (audioCtx.state === 'suspended') await audioCtx.resume();
+    running = true;
+    set({ phase: 'listening', key: expected[0]?.key ?? '', mistakes: 0, heard: 0 });
+    loop();
+  } catch (e) {
+    stopListening();
+    const msg = (e as Error).name === 'NotAllowedError'
+      ? 'Microphone access was refused. Allow it in Settings → Safari → Microphone (or remove and re-add the app).'
+      : (e as Error).message === 'checksum' ? 'The recitation checker didn’t download correctly. Try again on Wi-Fi.'
+      : navigator.onLine ? 'Recitation mode couldn’t start on this device.' : 'You’re offline. The recitation checker must be downloaded once, on Wi-Fi.';
+    set({ phase: 'error', message: msg });
+  }
+}
+
+export function stopListening(): void {
+  running = false;
+  clearTimeout(loopTimer);
+  node?.disconnect();
+  stream?.getTracks().forEach((t) => t.stop());
+  void audioCtx?.close().catch(() => undefined);
+  node = null; stream = null; audioCtx = null;
+  if (state.phase !== 'error') set({ phase: 'idle' });
+}
+
+const WINDOW = 7 * RATE; // commit audio in windows of this length…
+const OVERLAP = 1.5 * RATE; // …overlapping by this much
+
+async function loop(): Promise<void> {
+  if (!running) return;
+  const started = performance.now();
+  try {
+    if (samples - windowStart >= RATE) {
+      const pcm = allAudio(windowStart);
+      if (!detectSpeech(pcm)) {
+        // Silence: nothing to hear; don't let it pile up.
+        if (pcm.length > 3 * RATE) windowStart = samples - RATE;
+      } else {
+        const t0 = performance.now();
+        const words = await transcribe(pcm);
+        console.info(`recitation: ${(pcm.length / RATE).toFixed(1)} s of audio heard in ${Math.round(performance.now() - t0)} ms`);
+        if (!running) return;
+        heard = overlapMerge(committed, words);
+        if (pcm.length >= WINDOW) { committed = heard; windowStart = samples - OVERLAP; }
+        judge();
+      }
+    }
+  } catch { /* try again next round */ }
+  // As often as the device keeps up with (at least ~every 1.2 s).
+  const spent = performance.now() - started;
+  loopTimer = window.setTimeout(loop, Math.max(250, 1200 - spent));
+}
+
+/** Find where in the expected text you started (anywhere in the first ~400 words). */
+function locate(): boolean {
+  if (heard.length < 3) return false;
+  const h = heard.slice(0, 4).map(normalizeArabic);
+  let best = -1, bestScore = 0;
+  for (let i = 0; i < Math.min(expected.length - 4, 400); i++) {
+    let score = 0;
+    for (let k = 0; k < h.length; k++) if (normalizeArabic(expected[i + k].text) === h[k]) score++;
+    if (score > bestScore) { bestScore = score; best = i; }
+  }
+  if (bestScore < 2) return false;
+  base = best;
+  return true;
+}
+
+function judge(): void {
+  if (!located) {
+    located = locate();
+    if (!located) return;
+  }
+  const exp = expected.slice(base, base + 160);
+  const said = heard.slice(heardSettled.length);
+  const result = judgeAttempt(exp.map((e) => e.text), said);
+
+  const marks: Marks = new Map([...settledMarks].map(([k, v]) => [k, new Map(v)]));
+  const mark = (e: Expected, m: 'ok' | 'err') => {
+    let per = marks.get(e.key);
+    if (!per) marks.set(e.key, (per = new Map()));
+    per.set(e.index, m);
+  };
+  let lastReached = -1;
+  let newMistake = false;
+  for (const w of result.words) {
+    if (w.expectedIndex == null) continue;
+    const e = exp[w.expectedIndex];
+    if (w.operation === 'unattempted') continue;
+    if (w.judgment === 'correct') mark(e, 'ok');
+    else if (w.judgment === 'apparent-error') {
+      mark(e, 'err');
+      const at = base + w.expectedIndex;
+      if (!flagged.has(at)) { flagged.add(at); newMistake = true; mistakes++; }
+    }
+    if (w.operation === 'match' || w.operation === 'substitution') lastReached = Math.max(lastReached, w.expectedIndex);
+  }
+  if (newMistake) beep();
+
+  // Settle everything well behind where you are, so the work stays small.
+  if (lastReached > 40) {
+    const upTo = lastReached - 20;
+    const anchor = result.words.find((w) => w.expectedIndex === upTo && w.recognizedIndex != null);
+    if (anchor) {
+      for (const [k, v] of marks) settledMarks.set(k, new Map(v));
+      heardSettled = heard.slice(0, heardSettled.length + anchor.recognizedIndex!);
+      base += upTo;
+      if (expected.length - base < 200) void extendExpected(nextAfter(expected[expected.length - 1].key), expected.length + 400);
+    }
+  }
+
+  const at = lastReached >= 0 ? exp[lastReached] : null;
+  set({ phase: 'listening', key: at?.key ?? exp[0]?.key ?? '', mistakes, heard: heard.length });
+  markFns.forEach((fn) => fn(marks, at ? { key: at.key, words: at.index + 1 } : null));
+}
+
+function nextAfter(key: string): [number, number] {
+  const [s, a] = key.split(':').map(Number);
+  return a < (getChapter(s)?.verses_count ?? 0) ? [s, a + 1] : [s + 1, 1];
+}
+
+/** A short, low two-note sound for a mistake. */
+function beep(): void {
+  try {
+    const ctx = audioCtx ?? new AudioContext();
+    const t = ctx.currentTime;
+    for (const [freq, at] of [[440, 0], [330, 0.13]] as const) {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.0001, t + at);
+      gain.gain.exponentialRampToValueAtTime(0.35, t + at + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + at + 0.12);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(t + at);
+      osc.stop(t + at + 0.14);
+    }
+  } catch { /* no sound available */ }
+}

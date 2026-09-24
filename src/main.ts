@@ -15,7 +15,10 @@ import { countText, renderSettings, scriptFamily, syncLine, type Mood, type Pref
 import { onChange } from './notes';
 import { claudeHost, onSyncState, startSync } from './sync';
 import { mountPlayerBar, openPlayerSheet, playFrom } from './player';
-import { onPlayer } from './recite';
+import { onPlayer, onProgress, stop } from './recite';
+import { clearWordMarks, markWords, revealWords } from './verses';
+import { h } from './dom';
+import { ayahWords } from './data';
 import { registerOffline } from './offline';
 
 type View = 'home' | 'mushaf' | 'verses' | 'settings';
@@ -365,8 +368,8 @@ listenButton.addEventListener('click', () => {
 
 // The ayah being recited is marked, in the mushaf and in verse by verse, and kept in view.
 let marked = '';
-onPlayer((n) => {
-  const key = n && !n.basmalah ? `${n.surah}:${n.ayah}` : '';
+onPlayer((n) => highlight(n && !n.basmalah ? `${n.surah}:${n.ayah}` : ''));
+function highlight(key: string): void {
   if (key === marked) return;
   stage.querySelectorAll('.reciting').forEach((el) => el.classList.remove('reciting'));
   marked = key;
@@ -378,11 +381,102 @@ onPlayer((n) => {
     const area = stage.getBoundingClientRect();
     if (box.top < area.top || box.top > area.bottom - 120) els[0].scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
-});
+}
 new MutationObserver(() => {
   if (!marked) return;
   stage.querySelectorAll<HTMLElement>(`.ayah[data-key="${marked}"]:not(.reciting), .w[data-key="${marked}"]:not(.reciting)`).forEach((el) => el.classList.add('reciting'));
 }).observe(stage, { childList: true, subtree: true });
+// Auto-reveal: as a reciter reaches each part of the ayah, its box opens, as
+// if tapped. Where each word falls is estimated from the words' lengths.
+onProgress((key, fraction) => {
+  if (view !== 'verses') return;
+  const words = ayahWords(key);
+  if (!words.length) return;
+  const lengths = words.map((w) => w.length);
+  const total = lengths.reduce((a, b) => a + b, 0);
+  let reached = 0;
+  let before = 0;
+  for (const len of lengths) {
+    if (before / total > fraction + 0.02) break;
+    reached++;
+    before += len;
+  }
+  revealWords(key, reached);
+});
+
+// ------------------------------------------------------------------ recitation mode
+
+// The listening code (and its speech engine) loads only when first used.
+type ListenModule = typeof import('./listen');
+let listenModule: Promise<ListenModule> | null = null;
+const listen = () => (listenModule ??= import('./listen'));
+const reciteButton = document.querySelector<HTMLButtonElement>('#recite')!;
+const listenBar = document.querySelector<HTMLElement>('#listenbar')!;
+iconButton(reciteButton, 'mic', 'Recite');
+
+/** Where to start listening: the ayah at the top of verse by verse, or the page's first ayah. */
+function startKey(): [number, number] {
+  if (view === 'verses') {
+    const top = stage.getBoundingClientRect().top;
+    const ayah = [...stage.querySelectorAll<HTMLElement>('.ayah')].find((el) => el.getBoundingClientRect().bottom > top + 40);
+    if (ayah?.dataset.key) return ayah.dataset.key.split(':').map(Number) as [number, number];
+  }
+  return (ayahRange(pageInView())?.[0] ?? '1:1').split(':').map(Number) as [number, number];
+}
+
+reciteButton.addEventListener('click', async () => {
+  const m = await listen();
+  if (m.listenState().phase === 'listening') { m.stopListening(); return; }
+  if (!(await m.modelDownloaded()) && !window.confirm(
+    `Recitation mode listens to you recite and flags wrong or skipped words. It needs a one-time download of about ${m.MODEL_SIZE_MB} MB (best on Wi-Fi). Your voice stays on this device. Download now?`)) return;
+  stop(); // not while a reciter is playing
+  m.startListening(startKey());
+});
+
+let wiredListen = false;
+async function wireListen(): Promise<void> {
+  if (wiredListen) return;
+  wiredListen = true;
+  const m = await listen();
+  const text = h('span', { class: 'listen-text' });
+  const end = h('button', { type: 'button', class: 'icon-only listen-stop' }) as HTMLButtonElement;
+  iconButton(end, 'close', 'Stop');
+  end.addEventListener('click', () => { m.stopListening(); listenBar.hidden = true; clearMarks(); });
+  listenBar.replaceChildren(h('span', { class: 'listen-dot', 'aria-hidden': 'true' }), text, end);
+  m.onListen((s) => {
+    document.body.classList.toggle('listening', s.phase === 'listening');
+    listenBar.hidden = s.phase === 'idle';
+    if (s.phase === 'downloading') text.textContent = `Downloading the recitation checker… ${Math.round((s.done / s.total) * 100)}%`;
+    else if (s.phase === 'starting') text.textContent = 'Getting ready…';
+    else if (s.phase === 'listening') {
+      text.textContent = s.heard ? `Listening · ${s.key} · ${s.mistakes} mistake${s.mistakes === 1 ? '' : 's'}` : 'Listening… start reciting';
+      if (s.key) highlight(s.key);
+    } else if (s.phase === 'error') text.textContent = s.message;
+    else highlight('');
+  });
+  m.onMarks((marks, reached) => {
+    for (const [key, per] of marks) {
+      markWords(key, per);
+      // The mushaf page too.
+      stage.querySelectorAll<HTMLElement>(`.w[data-key="${key}"]`).forEach((span) => {
+        const mk = per.get(Number(span.dataset.pos) - 1);
+        span.classList.toggle('mark-ok', mk === 'ok');
+        span.classList.toggle('mark-err', mk === 'err');
+      });
+    }
+    if (reached && view === 'verses') {
+      // Reveal every box you've recited, as if tapped.
+      for (const key of marks.keys()) if (key !== reached.key) revealWords(key, Infinity);
+      revealWords(reached.key, reached.words);
+    }
+  });
+}
+reciteButton.addEventListener('click', () => void wireListen(), { capture: true });
+function clearMarks(): void {
+  clearWordMarks();
+  stage.querySelectorAll('.w.mark-ok, .w.mark-err').forEach((el) => el.classList.remove('mark-ok', 'mark-err'));
+}
+
 document.addEventListener('play-ayah', (e) => {
   const [surah, ayah] = (e as CustomEvent<string>).detail.split(':').map(Number);
   playFrom(surah, ayah);

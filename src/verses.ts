@@ -18,6 +18,46 @@ export interface VerseOptions {
 /** Which boxes show their English, per ayah, once the memoriser has tapped any. */
 const revealed = new Map<string, Set<number>>();
 
+/** The options verse by verse was last drawn with (for redrawing one ayah from outside). */
+let shownWith: VerseOptions | null = null;
+
+/** Recitation marks per ayah: word index -> 'ok' | 'err'. */
+const wordMarks = new Map<string, Map<number, 'ok' | 'err'>>();
+export function clearWordMarks(): void {
+  wordMarks.clear();
+  document.querySelectorAll('.vw.mark-ok, .vw.mark-err').forEach((el) => el.classList.remove('mark-ok', 'mark-err'));
+}
+
+function redraw(key: string): void {
+  const el = document.getElementById(`ayah-${key.replace(':', '-')}`);
+  if (el && shownWith) el.replaceWith(renderAyah(key, shownWith));
+}
+
+/**
+ * Reveal every box the recitation has reached (its first word is among the
+ * first `wordsReached` words), just as if it had been tapped.
+ */
+export function revealWords(key: string, wordsReached: number): void {
+  if (!shownWith) return;
+  const phrases = phrasesOf(key);
+  const set = revealSet(key, phrases, shownWith);
+  let changed = false;
+  for (const p of phrases) if (p.start < wordsReached && !set.has(p.start)) { set.add(p.start); changed = true; }
+  if (changed) redraw(key);
+}
+
+/** Mark words as recited correctly or not (recitation mode); marks stay across redraws. */
+export function markWords(key: string, marks: Map<number, 'ok' | 'err'>): void {
+  wordMarks.set(key, marks);
+  const el = document.getElementById(`ayah-${key.replace(':', '-')}`);
+  if (!el) return;
+  el.querySelectorAll<HTMLElement>('.vw[data-index]').forEach((span) => {
+    const m = marks.get(Number(span.dataset.index));
+    span.classList.toggle('mark-ok', m === 'ok');
+    span.classList.toggle('mark-err', m === 'err');
+  });
+}
+
 /** Called when "hide translations" is switched: every ayah goes back to the new default. */
 export function resetReveals(): void { revealed.clear(); }
 
@@ -47,6 +87,7 @@ const BATCH = 3;
  * first pages are on screen.
  */
 export function renderVerses(startPage: number, options: VerseOptions): { root: HTMLElement; ready: Promise<void> } {
+  shownWith = options;
   const root = h('div', { class: 'verses' });
   root.append(h('p', { class: 'verses-hint' },
     'Each box is one piece of meaning. Tap it to show or hide that part of the translation. Drag the edge between two boxes to move words across; double-tap a word to split its box there.'));
@@ -161,6 +202,8 @@ export function renderAyah(key: string, options: VerseOptions): HTMLElement {
       span.dataset.page = String(page);
       span.dataset.code = word.code;
       span.dataset.index = String(w);
+      const mark = wordMarks.get(key)?.get(w);
+      if (mark) span.classList.add(mark === 'ok' ? 'mark-ok' : 'mark-err');
       box.append(span);
     }
     box.addEventListener('click', () => { toggleReveal(key, p.start, phrases, options); rerender(); });
