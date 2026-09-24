@@ -155,10 +155,14 @@ function allAudio(from: number): Float32Array {
 }
 
 /** Start listening from an ayah (you may start anywhere in the next page or so). */
-export async function startListening(from: [number, number]): Promise<void> {
-  if (running) return;
+export async function startListening(from: [number, number], ctx?: AudioContext): Promise<void> {
+  if (running) { void ctx?.close().catch(() => undefined); return; }
   try {
     set({ phase: 'starting' });
+    // Best started during the tap itself (iPhone won't allow it later), so the
+    // caller passes one in.
+    audioCtx = ctx ?? new AudioContext();
+    void audioCtx.resume().catch(() => undefined);
     // Plain microphone audio: phone "voice call" processing distorts recitation.
     stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
     await loadModel();
@@ -169,7 +173,6 @@ export async function startListening(from: [number, number]): Promise<void> {
 
     // Record at the device's own rate and convert to 16 kHz here (asking the
     // browser for a 16 kHz context isn't reliable everywhere).
-    audioCtx = new AudioContext();
     const src = audioCtx.createMediaStreamSource(stream);
     const resample = resampler(audioCtx.sampleRate);
     const began = performance.now();
@@ -210,7 +213,9 @@ export async function startListening(from: [number, number]): Promise<void> {
     const msg = (e as Error).name === 'NotAllowedError'
       ? 'Microphone access was refused. Allow it in Settings → Safari → Microphone (or remove and re-add the app).'
       : (e as Error).message === 'checksum' ? 'The recitation checker didn’t download correctly. Try again on Wi-Fi.'
-      : navigator.onLine ? 'Recitation mode couldn’t start on this device.' : 'You’re offline. The recitation checker must be downloaded once, on Wi-Fi.';
+      : !navigator.onLine ? 'You’re offline. The recitation checker must be downloaded once, on Wi-Fi.'
+      : (e as Error).message === 'download' || (e as Error).name === 'TypeError' && !session ? 'Couldn’t download the recitation checker. Check your connection and try again.'
+      : 'Recitation mode couldn’t start on this device.';
     set({ phase: 'error', message: msg });
   }
 }
@@ -381,7 +386,7 @@ function judge(): void {
       const at = base + w.expectedIndex;
       if (!flagged.has(at)) {
         // A run of wrong or skipped words (a missed ayah, say) is one mistake, one sound.
-        if (!flagged.has(at - 1)) { newMistake = true; mistakes++; }
+        if (!flagged.has(at - 1) && !flagged.has(at + 1)) { newMistake = true; mistakes++; }
         flagged.add(at);
       }
     }

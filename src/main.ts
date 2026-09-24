@@ -425,12 +425,16 @@ function startKey(): [number, number] {
 }
 
 reciteButton.addEventListener('click', async () => {
+  // Start the sound system during the tap itself: iPhone won't allow it later.
+  const ctx = new AudioContext();
+  void ctx.resume().catch(() => undefined);
   const m = await listen();
-  if (m.listenState().phase === 'listening') { m.stopListening(); return; }
+  const drop = () => void ctx.close().catch(() => undefined);
+  if (m.listenState().phase === 'listening') { drop(); m.stopListening(); return; }
   if (!(await m.modelDownloaded()) && !window.confirm(
-    `Recitation mode listens to you recite and flags wrong or skipped words. It needs a one-time download of about ${m.MODEL_SIZE_MB} MB (best on Wi-Fi). Your voice stays on this device. Download now?`)) return;
+    `Recitation mode listens to you recite and flags wrong or skipped words. It needs a one-time download of about ${m.MODEL_SIZE_MB} MB (best on Wi-Fi). Your voice stays on this device. Download now?`)) { drop(); return; }
   stop(); // not while a reciter is playing
-  m.startListening(startKey());
+  m.startListening(startKey(), ctx);
 });
 
 let wiredListen = false;
