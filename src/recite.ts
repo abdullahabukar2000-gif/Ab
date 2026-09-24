@@ -256,6 +256,8 @@ let token = 0;
 let segmentEnd: number | null = null;
 /** Set between one recitation finishing and the next starting. */
 let between = false;
+/** The recording runs straight on into the next ayah (no jump needed). */
+let continuing = false;
 
 const tell = (error?: string) => listeners.forEach((fn) => fn(now, error));
 export const nowPlaying = () => now;
@@ -301,6 +303,7 @@ export function stop(): void {
   audio.removeAttribute('src');
   audio.dataset.file = '';
   segmentEnd = null;
+  continuing = false;
   between = false;
   if (blobUrl) { URL.revokeObjectURL(blobUrl); blobUrl = null; }
   if (now) { now = null; tell(); }
@@ -395,24 +398,11 @@ async function startSegment(r: Reciter, surah: number, ayah: number, mine: numbe
     if (audio.error) { audio.dataset.file = ''; cannotPlay(); return; }
   }
   // Continuing straight on (next ayah, no repeat or pause): don't seek, so there's no gap.
-  if (Math.abs(audio.currentTime - seg.from) > 0.35 || audio.paused) {
-    if (!(await seekTo(seg.from))) {
-      // The server wouldn't let the player jump into the file: load the whole
-      // surah into memory, where it always can, and jump there.
-      if (blobUrl && audio.src === blobUrl) { cannotPlay(); return; }
-      tell('Loading the whole surah recording…');
-      try {
-        const res = await fetch(addresses(r, seg.file, 1)[0]);
-        if (!res.ok) throw new Error();
-        const blob = await res.blob();
-        if (mine !== token || !now) return;
-        if (blobUrl) URL.revokeObjectURL(blobUrl);
-        audio.src = blobUrl = URL.createObjectURL(blob);
-        if (!(await seekTo(seg.from))) { cannotPlay(); return; }
-      } catch { if (mine === token) cannotPlay(); return; }
-      if (mine !== token || !now) return;
-      tell();
-    }
+  const jump = !continuing || audio.paused;
+  continuing = false;
+  if (jump) {
+    await metadata();
+    audio.currentTime = seg.from;
   }
   segmentEnd = seg.to;
   audio.playbackRate = now.plan.speed;
@@ -423,26 +413,51 @@ async function startSegment(r: Reciter, surah: number, ayah: number, mine: numbe
     if (mine !== token || !now) return;
     if ((e as DOMException).name === 'NotAllowedError') { now.playing = false; tell(); return; }
     cannotPlay();
+    return;
   }
+  // iPhone Safari may only finish a jump once playback has started, so the
+  // jump is checked while playing and made again if it didn't take.
+  if (jump) void confirmJump(r, seg, mine);
 }
 
-/** Jump to `time` (seconds); false if the player couldn't get there. */
-async function seekTo(time: number): Promise<boolean> {
-  if (audio.readyState < 1) {
-    await new Promise<void>((done) => {
-      const ok = () => { audio.removeEventListener('loadedmetadata', ok); done(); };
-      audio.addEventListener('loadedmetadata', ok);
-      window.setTimeout(ok, 8000);
-    });
-  }
-  audio.currentTime = time;
-  if (Math.abs(audio.currentTime - time) < 0.5) return true;
+/** Wait until the recording's length is known (needed before jumping into it). */
+async function metadata(): Promise<void> {
+  if (audio.readyState >= 1) return;
   await new Promise<void>((done) => {
-    const ok = () => { audio.removeEventListener('seeked', ok); done(); };
-    audio.addEventListener('seeked', ok);
-    window.setTimeout(ok, 1500);
+    const ok = () => { audio.removeEventListener('loadedmetadata', ok); done(); };
+    audio.addEventListener('loadedmetadata', ok);
+    window.setTimeout(ok, 8000);
   });
-  return Math.abs(audio.currentTime - time) < 0.5;
+}
+
+const landed = (from: number, to: number) => audio.currentTime >= from - 0.5 && audio.currentTime < Math.max(from + 0.5, to);
+
+async function confirmJump(r: Reciter, seg: { file: number; from: number; to: number }, mine: number): Promise<void> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await new Promise((res) => window.setTimeout(res, 400));
+    if (mine !== token || !now) return;
+    if (landed(seg.from, seg.to)) return;
+    audio.currentTime = seg.from;
+  }
+  await new Promise((res) => window.setTimeout(res, 400));
+  if (mine !== token || !now || landed(seg.from, seg.to)) return;
+  // The server won't let the player jump into the file: load the whole surah
+  // into memory, where it always can, and jump there.
+  if (blobUrl && audio.src === blobUrl) return;
+  tell('Loading the whole surah recording…');
+  try {
+    const res = await fetch(addresses(r, seg.file, 1)[0]);
+    if (!res.ok) throw new Error();
+    const blob = await res.blob();
+    if (mine !== token || !now) return;
+    if (blobUrl) URL.revokeObjectURL(blobUrl);
+    audio.src = blobUrl = URL.createObjectURL(blob);
+    await metadata();
+    audio.currentTime = seg.from;
+    await audio.play();
+    watchSegment();
+    tell();
+  } catch { if (mine === token) cannotPlay(); }
 }
 
 /** Stop at the end of the current ayah (checked every frame, and on timeupdate as a backstop). */
@@ -471,7 +486,9 @@ function finished(inFile: boolean): void {
   // (Only within a surah: the next surah is a different file.)
   const straightOn = inFile && !now.basmalah && p.pause === 0 && p.eachAyah === 1 && !isLast(now)
     && now.ayah < (getChapter(now.surah)?.verses_count ?? 0);
-  if (inFile && !straightOn) audio.pause();
+  // Pause only for the quiet gap (or the end); a repeat jumps back while playing.
+  if (inFile && !straightOn && p.pause > 0) audio.pause();
+  continuing = straightOn;
   between = true;
   const after = () => { if (mine === token && now) advance(); };
   const wait = now.basmalah ? 0 : now.plan.pause;
@@ -500,6 +517,7 @@ function advance(skipRepeats = false): void {
     return;
   }
   now.playing = false;
+  audio.pause();
   const done = now;
   now = null;
   listeners.forEach((fn) => fn(null));
