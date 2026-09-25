@@ -251,8 +251,18 @@
   the audio thread (public/mic-worklet.js; nothing is dropped while the model runs), and
   converted to 16 kHz in the app. It's heard in pieces of ~10 s cut at a real pause, so
   no word is split between pieces.
-- A run of wrong or skipped words (a missed ayah) is one mistake and one sound.
-- Result of the e2e check: all 70 recited words right, the left-out ayah 14:3 flagged.
+- A run of wrong or skipped words (a missed ayah) is one mistake and one sound, played
+  only once the word has been judged wrong twice with three right words after it.
+- Where you are only moves forward: to the next word when it's said right, or to a spot
+  confirmed by 3 right words out of 5 (so a skipped ayah is followed, but a stray
+  misheard word further on doesn't pull the screen there). The start is found from 3
+  words in a row at the chosen ayah, or 4 of 5 further on.
+- A chime plays when listening starts; the mistake sound is louder.
+- Speed on the test machine: words show about 1–3 s after they're said inside an ayah,
+  4–6 s at the start of a new one. 8-second pieces were ~2 s quicker but wrongly flagged
+  words, so 10-second pieces are kept.
+- Result of the e2e check: all 70 recited words right, the left-out ayah 14:3 flagged,
+  one mistake sound.
 - Auto-reveal: in verse by verse, translation blocks open by themselves as the words they
   cover are recited — by you (recitation mode) or by the reciter you're listening to.
 - Test: `.github/workflows/e2e-recite.yml` feeds a real recitation (Husary 14:1, 14:2,

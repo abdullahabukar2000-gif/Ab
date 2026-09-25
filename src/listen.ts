@@ -259,18 +259,19 @@ function resampler(inRate: number): (input: Float32Array) => Float32Array {
   };
 }
 
-// What you've said so far is heard in pieces. Once a piece is ~8 s long it's
+// What you've said so far is heard in pieces. Once a piece is ~10 s long
+// (shorter pieces were quicker but misheard more words) it's
 // cut at the quietest moment near its end (the pause between words or ayahs),
 // heard once more up to there and kept; listening carries on from the cut. Only
 // if there's no pause at all is it cut with an overlap and the two stitched.
-const WINDOW = 8 * RATE;
-const LONGEST = 13 * RATE;
+const WINDOW = 10 * RATE;
+const LONGEST = 18 * RATE;
 const OVERLAP = 2 * RATE;
 let stitchNext = false; // the kept words end in an overlap with what comes next
 
 const join = (words: string[]) => (stitchNext ? overlapMerge(committed, words) : committed.concat(words));
 
-/** The quietest ~300 ms after the first 2.5 s, as a sample offset, if it's a real pause. */
+/** The quietest ~300 ms after the first 3 s, as a sample offset, if it's a real pause. */
 function quietCut(pcm: Float32Array): number {
   const F = RATE / 50; // 20 ms frames
   const rms: number[] = [];
@@ -282,7 +283,7 @@ function quietCut(pcm: Float32Array): number {
   const typical = [...rms].sort((x, y) => x - y)[Math.floor(rms.length * 0.7)] || 0;
   const W = 15; // frames per quiet spot (~300 ms)
   let best = -1, bestLevel = Infinity;
-  for (let f = 125; f + W < rms.length - 15; f++) {
+  for (let f = 150; f + W < rms.length - 15; f++) {
     let level = 0;
     for (let k = 0; k < W; k++) level += rms[f + k];
     if (level < bestLevel) { bestLevel = level; best = f; }
