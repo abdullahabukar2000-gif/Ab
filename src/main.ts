@@ -16,7 +16,7 @@ import { onChange } from './notes';
 import { claudeHost, onSyncState, startSync } from './sync';
 import { mountPlayerBar, openPlayerSheet, playFrom } from './player';
 import { onPlayer, onProgress, stop } from './recite';
-import { clearWordMarks, markWords, revealWords } from './verses';
+import { clearHeard, clearWordMarks, fillWords, markWords, revealWords } from './verses';
 import { h } from './dom';
 import { ayahWords } from './data';
 import { registerOffline } from './offline';
@@ -29,6 +29,7 @@ const title = document.querySelector<HTMLElement>('#title')!;
 const subtitle = document.querySelector<HTMLElement>('#subtitle')!;
 const layoutButton = document.querySelector<HTMLButtonElement>('#layout')!;
 const coverButton = document.querySelector<HTMLButtonElement>('#cover')!;
+const hideButton = document.querySelector<HTMLButtonElement>('#hide')!;
 const nextButton = document.querySelector<HTMLButtonElement>('#next')!;
 const prevButton = document.querySelector<HTMLButtonElement>('#prev')!;
 const listenButton = document.querySelector<HTMLButtonElement>('#listen')!;
@@ -43,6 +44,7 @@ const VIEWS: View[] = ['home', 'mushaf', 'verses', 'settings'];
 let view: View = VIEWS.includes(store.get('view') as View) ? store.get('view') as View : 'home';
 let layout: Layout = store.get('layout') === 'spread' ? 'spread' : 'single';
 let coverTranslations = store.get('cover') === 'yes';
+let hideArabic = store.get('hide-arabic') === 'yes';
 const savedPage = Number(store.get('page'));
 let lastPage: number | null = savedPage >= 1 && savedPage <= TOTAL_PAGES ? savedPage : null;
 const prefs: Prefs = {
@@ -75,6 +77,9 @@ function updateChrome(): void {
   });
   iconButton(layoutButton, layout === 'single' ? 'twoPages' : 'onePage', layout === 'single' ? 'Two pages' : 'One page');
   iconButton(coverButton, coverTranslations ? 'eye' : 'eyeOff', coverTranslations ? 'Show translations' : 'Hide translations');
+  iconButton(hideButton, hideArabic ? 'text' : 'textOff', hideArabic ? 'Show Arabic' : 'Hide Arabic');
+  hideButton.setAttribute('aria-pressed', String(hideArabic));
+  document.body.classList.toggle('hide-arabic', hideArabic);
   updateTitle();
 }
 
@@ -358,6 +363,27 @@ coverButton.addEventListener('click', () => {
   store.set('cover', coverTranslations ? 'yes' : 'no');
   refresh();
 });
+// Hide the Arabic (to test yourself, like Tarteel): each word is a blank that
+// fills in as you recite it, or as the reciter you're listening to reaches it.
+hideButton.addEventListener('click', () => {
+  hideArabic = !hideArabic;
+  store.set('hide-arabic', hideArabic ? 'yes' : 'no');
+  clearHeard();
+  stage.querySelectorAll('.w.heard, .w.peek').forEach((el) => el.classList.remove('heard', 'peek'));
+  updateChrome();
+});
+/** Fill in the first `words` words of an ayah (hidden Arabic). */
+function fillIn(key: string, words: number): void {
+  fillWords(key, words);
+  stage.querySelectorAll<HTMLElement>(`.w[data-key="${key}"]:not(.end)`).forEach((span) => {
+    if (Number(span.dataset.pos) <= words) span.classList.add('heard');
+  });
+}
+// On the mushaf page, tap a hidden word to peek at it.
+stage.addEventListener('click', (e) => {
+  if (!hideArabic) return;
+  (e.target as HTMLElement).closest<HTMLElement>('.w:not(.end)')?.classList.toggle('peek');
+});
 nextButton.addEventListener('click', () => turn(1));
 // Listen: opens at the surah and first ayah of the page in view.
 listenButton.addEventListener('click', () => {
@@ -389,7 +415,7 @@ new MutationObserver(() => {
 // Auto-reveal: as a reciter reaches each part of the ayah, its box opens, as
 // if tapped. Where each word falls is estimated from the words' lengths.
 onProgress((key, fraction) => {
-  if (view !== 'verses') return;
+  if (view !== 'verses' && !hideArabic) return;
   const words = ayahWords(key);
   if (!words.length) return;
   const lengths = words.map((w) => w.length);
@@ -401,7 +427,8 @@ onProgress((key, fraction) => {
     reached++;
     before += len;
   }
-  revealWords(key, reached);
+  if (hideArabic) fillIn(key, reached);
+  if (view === 'verses') revealWords(key, reached);
 });
 
 // ------------------------------------------------------------------ recitation mode
@@ -467,6 +494,10 @@ async function wireListen(): Promise<void> {
         span.classList.toggle('mark-ok', mk === 'ok');
         span.classList.toggle('mark-err', mk === 'err');
       });
+    }
+    if (reached && hideArabic) {
+      for (const key of marks.keys()) if (key !== reached.key) fillIn(key, Infinity);
+      fillIn(reached.key, reached.words);
     }
     if (reached && view === 'verses') {
       // Reveal every box you've recited, as if tapped.

@@ -205,10 +205,10 @@ body {
 #topbar .icon-only .label, .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 /* Only what applies to the view on screen. */
-#topbar :is(#next, #prev, #layout, #cover, #listen, #recite) { display: none; }
+#topbar :is(#next, #prev, #layout, #cover, #hide, #listen, #recite) { display: none; }
 body[data-view='mushaf'] #topbar :is(#next, #prev, #layout),
 body[data-view='verses'] #topbar #cover,
-body:is([data-view='mushaf'], [data-view='verses']) #topbar :is(#listen, #recite) { display: inline-flex; }
+body:is([data-view='mushaf'], [data-view='verses']) #topbar :is(#hide, #listen, #recite) { display: inline-flex; }
 @media (max-width: 640px) {
   /* On phones you swipe, and a two-page spread would be too small to read. */
   body[data-view='mushaf'] #topbar :is(#next, #prev, #layout) { display: none; }
@@ -725,3 +725,17 @@ body.listening .listen-dot { background: var(--accent); animation: pulse 1.2s ea
 body.listening #recite { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .w.mark-ok { color: color-mix(in oklab, var(--ink) 55%, #1b7f4b); }
 .w.mark-err { color: var(--accent); background: var(--accent-wash); border-radius: 0.15em; }
+
+/* Hidden Arabic: each word keeps its place as a pale blank, and fills in once
+   it's recited (green if right, red if wrong), heard from the reciter, or
+   tapped (mushaf page). Ayah numbers stay, to keep your place. */
+.hide-arabic :is(.w, .vw):not(.end):not(.mark-ok):not(.mark-err):not(.heard):not(.peek) {
+  color: transparent;
+  background: color-mix(in oklab, var(--ink) 9%, transparent);
+  border-radius: 0.25em;
+  box-shadow: inset 0 0 0 0.04em color-mix(in oklab, var(--ink) 6%, transparent);
+}
+.hide-arabic .w:not(.end) { cursor: pointer; }
+.hide-arabic :is(.w, .vw).heard, .hide-arabic .w.peek { animation: fill-in 0.25s ease-out; }
+@keyframes fill-in { from { opacity: 0.2; } to { opacity: 1; } }
+#topbar #hide[aria-pressed='true'] { color: var(--accent-ink); background: var(--accent-wash); }

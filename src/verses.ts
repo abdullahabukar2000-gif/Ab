@@ -58,6 +58,20 @@ export function markWords(key: string, marks: Map<number, 'ok' | 'err'>): void {
   });
 }
 
+/** Words heard so far per ayah (recited or played): they fill in when the Arabic is hidden. */
+const heardUpTo = new Map<string, number>();
+export function fillWords(key: string, words: number): void {
+  if ((heardUpTo.get(key) ?? 0) >= words) return;
+  heardUpTo.set(key, words);
+  document.getElementById(`ayah-${key.replace(':', '-')}`)?.querySelectorAll<HTMLElement>('.vw[data-index]').forEach((span) => {
+    if (Number(span.dataset.index) < words) span.classList.add('heard');
+  });
+}
+export function clearHeard(): void {
+  heardUpTo.clear();
+  document.querySelectorAll('.vw.heard').forEach((el) => el.classList.remove('heard'));
+}
+
 /** Called when "hide translations" is switched: every ayah goes back to the new default. */
 export function resetReveals(): void { revealed.clear(); }
 
@@ -204,6 +218,7 @@ export function renderAyah(key: string, options: VerseOptions): HTMLElement {
       span.dataset.index = String(w);
       const mark = wordMarks.get(key)?.get(w);
       if (mark) span.classList.add(mark === 'ok' ? 'mark-ok' : 'mark-err');
+      if (w < (heardUpTo.get(key) ?? 0)) span.classList.add('heard');
       box.append(span);
     }
     box.addEventListener('click', () => { toggleReveal(key, p.start, phrases, options); rerender(); });

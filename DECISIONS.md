@@ -267,3 +267,12 @@
   cover are recited — by you (recitation mode) or by the reciter you're listening to.
 - Test: `.github/workflows/e2e-recite.yml` feeds a real recitation (Husary 14:1, 14:2,
   14:4, 14:5 — 14:3 left out on purpose) to the app as its microphone.
+
+# Hide the Arabic (test yourself, like Tarteel)
+
+- A "Hide Arabic" button (mushaf and verse by verse) turns every word into a pale blank
+  of the same size; ayah numbers, surah names and the basmalah stay, to keep your place.
+- Words fill in as you recite them (green when right, red when wrong, and words you've
+  passed that were only nearly heard), or as the reciter you're listening to reaches
+  them. On the mushaf page you can tap a blank to peek at it.
+- Switching it off and on again starts afresh.
