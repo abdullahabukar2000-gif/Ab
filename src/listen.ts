@@ -394,7 +394,11 @@ function judge(): void {
   // Lots heard that matches nothing close by: look further ahead.
   if (said.length - 1 - lastHeardUsed(result) >= 8) ({ exp, result } = attempt(SKIP_AHEAD));
 
-  const correct = result.words.filter((w) => w.judgment === 'correct' && w.expectedIndex != null).map((w) => base + w.expectedIndex!);
+  // Progress counts words heard right, and ones heard nearly right (the
+  // model's "unsure"): they aren't marked green, but you've clearly said them.
+  const correct = result.words
+    .filter((w) => (w.judgment === 'correct' || (w.judgment === 'uncertain' && w.recognizedIndex != null)) && w.expectedIndex != null)
+    .map((w) => base + w.expectedIndex!);
   const isCorrect = new Set(correct);
   for (const c of correct) {
     if (c <= reachedAt) continue;
